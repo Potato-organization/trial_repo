@@ -33,7 +33,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       vsync: this,
     )..repeat(reverse: true);
 
-    // Staggered animation for each character
+    // animation for each character
     final intervalStep = 0.5 / _title.length;
     for (int i = 0; i < _title.length; i++) {
       final start = i * intervalStep;
