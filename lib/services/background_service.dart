@@ -133,7 +133,7 @@ class BackgroundService {
             }
             
             final path = playlist[currentIndex];
-            debugPrint("▶ Playing: Sound ${currentIndex + 1} of $count");
+            debugPrint(" Playing: Sound ${currentIndex + 1} of $count");
             
             try {
               if (isPlaying) await player.stop();
@@ -144,7 +144,7 @@ class BackgroundService {
               currentIndex = (currentIndex + 1) % count;
               await prefs.setInt(_indexKey, currentIndex);
               
-              debugPrint("✅ Next will be: Sound ${currentIndex + 1}");
+              debugPrint("   Next will be: Sound ${currentIndex + 1}");
             } catch (e) {
               debugPrint("❌ Playback error: $e");
             }

@@ -89,4 +89,9 @@ class AudioRecorderService {
     await prefs.setStringList(_prefsKey, []);
     await prefs.setInt(_countKey, 0);
   }
+  
+  Future<void> reorderRecordings(List<String> newOrder) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_prefsKey, newOrder);
+  }
 }
