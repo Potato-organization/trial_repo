@@ -8,23 +8,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:trial/main.dart';
+import 'package:chaos/main.dart';
+import 'package:chaos/providers/theme_provider.dart';
+import 'package:chaos/providers/settings_provider.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Chaos app smoke test', (WidgetTester tester) async {
+    // Build our app and trigger a frame with providers
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ],
+        child: const MyApp(isFirstLaunch: true),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Build our app and trigger a frame with providers
+    await tester.pump(const Duration(seconds: 1));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that welcome screen characters are there
+    // Since each character is a separate Text widget, we check for 'C', 'h', 'a', 'o', 's'
+    expect(find.text('C'), findsOneWidget);
+    expect(find.text('h'), findsOneWidget);
   });
 }

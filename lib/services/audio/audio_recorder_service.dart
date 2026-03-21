@@ -35,7 +35,6 @@ class AudioRecorderService {
   Future<String?> stopRecording() async {
     final path = await _audioRecorder.stop();
     if (path != null) {
-      // Update count and sync playlist
       await _syncPlaylist();
     }
     return path;
@@ -44,6 +43,9 @@ class AudioRecorderService {
   Future<void> _syncPlaylist() async {
     final prefs = await SharedPreferences.getInstance();
     final directory = await getApplicationDocumentsDirectory();
+
+    if (!await directory.exists()) return;
+
     final List<FileSystemEntity> files = directory.listSync();
     
     final paths = files
@@ -51,7 +53,6 @@ class AudioRecorderService {
         .map((file) => file.path)
         .toList()
       ..sort((a, b) {
-        // Sort by number: shake_1.m4a, shake_2.m4a, etc.
         final numA = int.tryParse(p.basename(a).replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
         final numB = int.tryParse(p.basename(b).replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
         return numA.compareTo(numB);
@@ -62,7 +63,7 @@ class AudioRecorderService {
   }
 
   Future<List<String>> getRecordings() async {
-    await _syncPlaylist(); // Always sync on load
+    await _syncPlaylist();
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(_prefsKey) ?? [];
   }
@@ -76,7 +77,6 @@ class AudioRecorderService {
   }
   
   Future<void> clearAll() async {
-    final prefs = await SharedPreferences.getInstance();
     final directory = await getApplicationDocumentsDirectory();
     final List<FileSystemEntity> files = directory.listSync();
     
@@ -86,6 +86,7 @@ class AudioRecorderService {
       }
     }
     
+    final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_prefsKey, []);
     await prefs.setInt(_countKey, 0);
   }
