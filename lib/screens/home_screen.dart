@@ -7,9 +7,12 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import '../services/audio_recorder_service.dart';
-import '../services/audio_player_service.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:provider/provider.dart';
+import '../services/audio/audio_recorder_service.dart';
+import '../services/audio/audio_player_service.dart';
+import '../providers/theme_provider.dart';
+import '../models/audio_effect.dart' as model;
+import 'package:just_audio/just_audio.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -30,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   
   String? _currentlyPlayingPath;
   bool _isPlaying = false;
+  model.AudioEffect _selectedEffect = model.AudioEffect.presets[0];
   
   // Shake detection
   StreamSubscription? _shakeSubscription;
@@ -48,16 +52,16 @@ class _HomeScreenState extends State<HomeScreen> {
     _playerService.playerStateStream.listen((state) {
       if (mounted) {
         setState(() {
-          _isPlaying = state == PlayerState.playing;
-          if (state == PlayerState.completed || state == PlayerState.stopped) {
+          _isPlaying = state.playing;
+          if (state.processingState == ProcessingState.completed) {
             _currentlyPlayingPath = null;
           }
         });
       }
     });
     
-    _shakePlayer.onPlayerStateChanged.listen((state) {
-      _isShakePlaying = state == PlayerState.playing;
+    _shakePlayer.playerStateStream.listen((state) {
+      _isShakePlaying = state.playing;
     });
   }
   
@@ -87,7 +91,8 @@ class _HomeScreenState extends State<HomeScreen> {
     
     try {
       if (_isShakePlaying) await _shakePlayer.stop();
-      await _shakePlayer.play(DeviceFileSource(path));
+      await _shakePlayer.setFilePath(path);
+      await _shakePlayer.play();
       _currentShakeIndex = (_currentShakeIndex + 1) % _recordings.length;
     } catch (e) {
       debugPrint("Shake playback error: $e");
@@ -211,7 +216,11 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _currentlyPlayingPath = null);
     } else {
       setState(() => _currentlyPlayingPath = path);
-      await _playerService.play(path);
+      await _playerService.play(
+        path,
+        pitch: _selectedEffect.pitch,
+        speed: _selectedEffect.speed
+      );
     }
   }
   
@@ -227,8 +236,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final accentColor = themeProvider.accentColor;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF0A0E21),
       body: SafeArea(
         child: Column(
           children: [
@@ -265,11 +277,11 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _recordings.isEmpty
                   ? _buildEmptyState()
-                  : _buildRecordingsList(),
+                  : _buildRecordingsList(accentColor),
             ),
             
             // Recording Area
-            _buildRecordingArea(),
+            _buildRecordingArea(accentColor),
           ],
         ),
       ),
@@ -287,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
               shape: BoxShape.circle,
               color: Colors.white.withOpacity(0.03),
             ),
-            child: Icon(Icons.mic_none_outlined, size: 48, color: Colors.white12),
+            child: const Icon(Icons.mic_none_outlined, size: 48, color: Colors.white12),
           ),
           const SizedBox(height: 24),
           Text(
@@ -308,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   
-  Widget _buildRecordingsList() {
+  Widget _buildRecordingsList(Color accentColor) {
     return ReorderableListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       itemCount: _recordings.length,
@@ -341,12 +353,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: isPlayingThis 
-                      ? Colors.white.withOpacity(0.95)
+                      ? accentColor
                       : Colors.white.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isPlayingThis 
-                        ? Colors.white 
+                        ? accentColor
                         : Colors.white.withOpacity(0.1),
                     width: 1,
                   ),
@@ -452,7 +464,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   
-  Widget _buildRecordingArea() {
+  Widget _buildRecordingArea(Color accentColor) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
       decoration: BoxDecoration(
@@ -486,16 +498,16 @@ class _HomeScreenState extends State<HomeScreen> {
               height: _isRecording ? 100 : 72,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _isRecording ? Colors.white : Colors.transparent,
+                color: _isRecording ? accentColor : Colors.transparent,
                 border: Border.all(
-                  color: Colors.white,
-                  width: _isRecording ? 3 : 2,
+                  color: _isRecording ? accentColor : Colors.white24,
+                  width: _isRecording ? 4 : 2,
                 ),
                 boxShadow: _isRecording ? [
                   BoxShadow(
-                    color: Colors.white.withOpacity(0.2),
-                    blurRadius: 30,
-                    spreadRadius: 5,
+                    color: accentColor.withOpacity(0.3),
+                    blurRadius: 40,
+                    spreadRadius: 8,
                   ),
                 ] : [],
               ),
@@ -506,6 +518,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 20),
+          _buildEffectSelector(accentColor),
           const SizedBox(height: 16),
           Text(
             'Shake to play • Max 5s',
@@ -515,6 +529,55 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEffectSelector(Color accentColor) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: model.AudioEffect.presets.map((effect) {
+          final isSelected = _selectedEffect.name == effect.name;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: GestureDetector(
+              onTap: () {
+                setState(() => _selectedEffect = effect);
+                HapticFeedback.selectionClick();
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? accentColor.withOpacity(0.1) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected ? accentColor : Colors.white10,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      effect.icon,
+                      size: 14,
+                      color: isSelected ? accentColor : Colors.white38
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      effect.name,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isSelected ? accentColor : Colors.white38,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
