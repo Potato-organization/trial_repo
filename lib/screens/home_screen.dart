@@ -553,7 +553,7 @@ class _HomeScreenState extends State<HomeScreen>
           const SizedBox(height: 8),
           Text(
             'Hold the button below to record',
-            style: GoogleFonts.inter(color: Colors.white18, fontSize: 14),
+            style: GoogleFonts.inter(color: Colors.white.withOpacity(0.18), fontSize: 14),
           ),
         ],
       ),
@@ -597,7 +597,7 @@ class _HomeScreenState extends State<HomeScreen>
                     padding: const EdgeInsets.all(4),
                     child: Icon(
                       Icons.drag_indicator_rounded,
-                      color: isPlayingThis ? accentColor.withOpacity(0.5) : Colors.white18,
+                      color: isPlayingThis ? accentColor.withOpacity(0.5) : Colors.white.withOpacity(0.18),
                       size: 20,
                     ),
                   ),
@@ -731,7 +731,7 @@ class _HomeScreenState extends State<HomeScreen>
                           ? accentColor.withOpacity(0.2)
                           : Colors.white.withOpacity(0.06),
                       border: Border.all(
-                        color: _isRecording ? accentColor : Colors.white18,
+                        color: _isRecording ? accentColor : Colors.white.withOpacity(0.18),
                         width: _isRecording ? 2.5 : 1.5,
                       ),
                       boxShadow: _isRecording
