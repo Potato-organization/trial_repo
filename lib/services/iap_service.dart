@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'dart:async';
 
@@ -16,19 +17,18 @@ class IAPService {
     }, onDone: () {
       _subscription.cancel();
     }, onError: (error) {
-      print('Purchase error: $error');
+      debugPrint('Purchase stream error: $error');
     });
   }
 
   void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) {
     for (var purchaseDetails in purchaseDetailsList) {
       if (purchaseDetails.status == PurchaseStatus.pending) {
-        // Show pending UI
+        // Pending — UI can reflect this state if needed.
       } else if (purchaseDetails.status == PurchaseStatus.error) {
-        print('Purchase error: ${purchaseDetails.error}');
+        debugPrint('Purchase error: ${purchaseDetails.error}');
       } else if (purchaseDetails.status == PurchaseStatus.purchased ||
                  purchaseDetails.status == PurchaseStatus.restored) {
-        // Deliver product and finish transaction
         if (purchaseDetails.pendingCompletePurchase) {
           _iap.completePurchase(purchaseDetails);
         }
@@ -40,14 +40,15 @@ class IAPService {
     final bool available = await _iap.isAvailable();
     if (!available) return;
 
-    const Set<String> _kIds = <String>{'chaos_pro_v1'};
-    final ProductDetailsResponse response = await _iap.queryProductDetails(_kIds);
+    const Set<String> kIds = <String>{'chaos_pro_v1'};
+    final ProductDetailsResponse response = await _iap.queryProductDetails(kIds);
     if (response.notFoundIDs.isNotEmpty) {
-      // Handle not found IDs
+      debugPrint('IAP product not found: ${response.notFoundIDs}');
     }
 
     if (response.productDetails.isNotEmpty) {
-      final PurchaseParam purchaseParam = PurchaseParam(productDetails: response.productDetails.first);
+      final PurchaseParam purchaseParam =
+          PurchaseParam(productDetails: response.productDetails.first);
       await _iap.buyNonConsumable(purchaseParam: purchaseParam);
     }
   }
@@ -56,3 +57,4 @@ class IAPService {
     _subscription.cancel();
   }
 }
+

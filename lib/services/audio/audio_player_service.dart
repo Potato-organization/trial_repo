@@ -1,10 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../statistics_service.dart';
 
 class AudioPlayerService {
   final AudioPlayer _player = AudioPlayer();
 
-  // Effects state
   double _pitch = 1.0;
   double _speed = 1.0;
 
@@ -19,25 +20,28 @@ class AudioPlayerService {
 
     try {
       if (stealthMode) {
-        await _player.setVolume(1.0); // Set volume to max even if system volume is low
+        await _player.setVolume(1.0);
       }
       await _player.setFilePath(path);
       await _player.setPitch(_pitch);
       await _player.setSpeed(_speed);
       await _player.play();
+      await StatisticsService.recordPlay(path);
     } catch (e) {
-      print("Error playing audio: $e");
+      debugPrint('AudioPlayerService: error playing file: $e');
     }
   }
 
-  Future<void> playAsset(String assetPath, {double pitch = 1.0, double speed = 1.0}) async {
+  Future<void> playAsset(String assetPath,
+      {double pitch = 1.0, double speed = 1.0}) async {
     try {
       await _player.setAsset(assetPath);
       await _player.setPitch(pitch);
       await _player.setSpeed(speed);
       await _player.play();
+      await StatisticsService.recordPlay(assetPath);
     } catch (e) {
-      print("Error playing asset: $e");
+      debugPrint('AudioPlayerService: error playing asset: $e');
     }
   }
 
@@ -49,3 +53,4 @@ class AudioPlayerService {
     _player.dispose();
   }
 }
+

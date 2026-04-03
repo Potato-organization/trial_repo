@@ -5,18 +5,21 @@ enum NeonTheme { blue, green, pink }
 
 class ThemeProvider with ChangeNotifier {
   NeonTheme _currentTheme = NeonTheme.blue;
+  bool _isLoading = true;
   final String _themeKey = 'neon_theme_accent';
 
   NeonTheme get currentTheme => _currentTheme;
+  bool get isLoading => _isLoading;
 
   ThemeProvider() {
     _loadTheme();
   }
 
-  void _loadTheme() async {
+  Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final themeIndex = prefs.getInt(_themeKey) ?? 0;
     _currentTheme = NeonTheme.values[themeIndex];
+    _isLoading = false;
     notifyListeners();
   }
 
