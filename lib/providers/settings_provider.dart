@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants.dart';
 
 class SettingsProvider with ChangeNotifier {
   bool _isPremium = false;
-  double _shakeSensitivity = 11.0;
+  double _shakeSensitivity = AppConstants.defaultShakeSensitivity;
   bool _stealthMode = false;
   bool _isBackgroundTriggersActive = false;
-  double _clapSensitivity = 90.0;
+  double _clapSensitivity = AppConstants.defaultClapSensitivity;
   int _selectedEffectIndex = 0;
   Set<String> _favoriteAssets = {};
   bool _isLoading = true;
@@ -35,10 +36,10 @@ class SettingsProvider with ChangeNotifier {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _isPremium = prefs.getBool(_premiumKey) ?? false;
-    _shakeSensitivity = prefs.getDouble(_sensitivityKey) ?? 11.0;
+    _shakeSensitivity = prefs.getDouble(_sensitivityKey) ?? AppConstants.defaultShakeSensitivity;
     _stealthMode = prefs.getBool(_stealthKey) ?? false;
     _isBackgroundTriggersActive = prefs.getBool(_bgTriggersKey) ?? false;
-    _clapSensitivity = prefs.getDouble(_clapSensitivityKey) ?? 90.0;
+    _clapSensitivity = prefs.getDouble(_clapSensitivityKey) ?? AppConstants.defaultClapSensitivity;
     _selectedEffectIndex = prefs.getInt(_effectIndexKey) ?? 0;
     _favoriteAssets = Set<String>.from(prefs.getStringList(_favoritesKey) ?? []);
     _isLoading = false;

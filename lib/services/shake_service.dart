@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'constants.dart';
+import '../constants.dart';
 
 /// Singleton foreground shake detector.
 ///

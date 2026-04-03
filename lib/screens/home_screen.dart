@@ -383,8 +383,9 @@ class _HomeScreenState extends State<HomeScreen>
           CupertinoActionSheetAction(
             onPressed: () async {
               Navigator.pop(context);
-              await SharePlus.instance.share(
-                ShareParams(files: [XFile(path)], text: 'Check out this sound from Chaos!'),
+              await Share.shareXFiles(
+                [XFile(path)],
+                text: 'Check out this sound from Chaos!',
               );
             },
             child: const Text('Share'),
