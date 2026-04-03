@@ -2,9 +2,16 @@ name: Build & Release APK
 
 on:
   push:
+    branches:
+      - 'copilot/push-v2-release'
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release'
+        required: false
+        default: 'v2'
 
 permissions:
   contents: write
@@ -33,9 +40,21 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag_name=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag_name=v2" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
