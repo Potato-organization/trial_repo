@@ -1,4 +1,4 @@
-package com.example.trial
+package com.potato.chaos
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -16,12 +16,12 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 "chaos_foreground",
-                "Chaos Background Service",
+                "Chaos Background Triggers",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shake detection running in background"
+                description = "Keeps Chaos trigger controls available while the app is active in the background"
             }
-            
+
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }

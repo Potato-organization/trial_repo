@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:async';  
-import 'home_screen.dart';
+import 'dart:async';
+import 'main_navigation.dart';
+import '../ui/chaos_design.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -15,7 +16,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     with TickerProviderStateMixin {
   late AnimationController _textController;
   late AnimationController _hintController;
-  
+
   final String _title = "Chaos";
   final List<Animation<double>> _charAnimations = [];
 
@@ -38,7 +39,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     for (int i = 0; i < _title.length; i++) {
       final start = i * intervalStep;
       final end = start + 0.4;
-      
+
       _charAnimations.add(
         Tween<double>(begin: 0.0, end: 1.0).animate(
           CurvedAnimation(
@@ -53,9 +54,10 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   }
 
   double _dragOffset = 0.0;
-  
+
   void _handleVerticalDragUpdate(DragUpdateDetails details) {
-    if (details.primaryDelta! < 0) { // Dragging up
+    if (details.primaryDelta! < 0) {
+      // Dragging up
       setState(() {
         _dragOffset += details.primaryDelta!;
       });
@@ -76,21 +78,22 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     // Mark first launch as complete
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('first_launch', false);
-    
+
     if (!mounted) return;
-    
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            const HomeScreen(),
+            const MainNavigation(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(0.0, 1.0);
           const end = Offset.zero;
           const curve = Curves.fastLinearToSlowEaseIn;
 
-          var tween = Tween(begin: begin, end: end).chain(
-            CurveTween(curve: curve),
-          );
+          var tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
 
           return SlideTransition(
             position: animation.drive(tween),
@@ -111,21 +114,22 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = Theme.of(context).colorScheme.primary;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
+      backgroundColor: ChaosColors.background,
       body: GestureDetector(
         onVerticalDragUpdate: _handleVerticalDragUpdate,
         onVerticalDragEnd: _handleVerticalDragEnd,
         child: Container(
-          color: Colors.transparent, 
+          color: Colors.transparent,
           width: double.infinity,
           height: double.infinity,
           child: AnimatedBuilder(
-            animation: _textController, 
+            animation: _textController,
             builder: (context, child) {
-
               return Transform.translate(
-                offset: Offset(0, _dragOffset * 0.3), 
+                offset: Offset(0, _dragOffset * 0.3),
                 child: Stack(
                   children: [
                     Center(
@@ -139,10 +143,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                 animation: _textController,
                                 builder: (context, child) {
                                   return Opacity(
-                                    opacity: _charAnimations[index].value.clamp(0.0, 1.0),
+                                    opacity: _charAnimations[index].value.clamp(
+                                      0.0,
+                                      1.0,
+                                    ),
                                     child: Transform.translate(
                                       offset: Offset(
-                                        0, 
+                                        0,
                                         20 * (1 - _charAnimations[index].value),
                                       ),
                                       child: Text(
@@ -151,15 +158,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                           fontFamily: 'MomoSignature',
                                           fontSize: 90,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.white,
+                                          color: ChaosColors.text,
                                           height: 1.0,
-                                          shadows: [
-                                            Shadow(
-                                              color: Colors.blueAccent.withOpacity(0.5 * _charAnimations[index].value),
-                                              offset: const Offset(2, 2),
-                                              blurRadius: 10,
-                                            ),
-                                          ],
                                         ),
                                       ),
                                     ),
@@ -173,19 +173,19 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             animation: _textController,
                             builder: (context, child) {
                               return Opacity(
-                                opacity: (_textController.value > 0.6) 
-                                    ? (_textController.value - 0.6) / 0.4 
+                                opacity: (_textController.value > 0.6)
+                                    ? (_textController.value - 0.6) / 0.4
                                     : 0.0,
                                 child: child,
                               );
                             },
                             child: Text(
-                              'Unleash the Sound',
+                              'Record. Trigger. Play.',
                               style: GoogleFonts.inter(
                                 fontSize: 16,
-                                color: Colors.white70,
-                                letterSpacing: 4.0,
-                                fontWeight: FontWeight.w300,
+                                color: ChaosColors.muted,
+                                letterSpacing: 2.0,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -200,14 +200,16 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         animation: _hintController,
                         builder: (context, child) {
                           return Opacity(
-                            opacity: (0.4 + (0.6 * _hintController.value)) * (1 + (_dragOffset / 200)).clamp(0.0, 1.0), 
+                            opacity:
+                                (0.4 + (0.6 * _hintController.value)) *
+                                (1 + (_dragOffset / 200)).clamp(0.0, 1.0),
                             child: Transform.translate(
-                              offset: Offset(0, -10 * _hintController.value), 
+                              offset: Offset(0, -10 * _hintController.value),
                               child: Column(
                                 children: [
                                   Icon(
                                     Icons.keyboard_arrow_up,
-                                    color: Colors.white54,
+                                    color: accentColor,
                                     size: 32,
                                   ),
                                   const SizedBox(height: 8),
@@ -215,7 +217,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                     'Swipe up to start',
                                     style: GoogleFonts.outfit(
                                       fontSize: 14,
-                                      color: Colors.white54,
+                                      color: ChaosColors.muted,
                                       letterSpacing: 1.5,
                                     ),
                                   ),
@@ -236,4 +238,3 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     );
   }
 }
-

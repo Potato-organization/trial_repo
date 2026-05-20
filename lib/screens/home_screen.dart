@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,10 +9,12 @@ import 'package:share_plus/share_plus.dart';
 import '../constants.dart';
 import '../models/audio_effect.dart' as model;
 import '../providers/settings_provider.dart';
-import '../providers/theme_provider.dart';
 import '../services/audio/audio_player_service.dart';
 import '../services/audio/audio_recorder_service.dart';
 import '../services/shake_service.dart';
+import '../services/slap_impact_detector.dart';
+import '../services/slap_service.dart';
+import '../ui/chaos_design.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -40,9 +41,11 @@ class _HomeScreenState extends State<HomeScreen>
 
   // Shake
   StreamSubscription<void>? _shakeSubscription;
+  StreamSubscription<SlapImpact>? _slapSubscription;
   int _currentShakeIndex = 0;
   final AudioPlayer _shakePlayer = AudioPlayer();
   bool _isShakePlaying = false;
+  SettingsProvider? _settingsProvider;
 
   // Undo reorder
   List<String>? _previousOrder;
@@ -61,8 +64,10 @@ class _HomeScreenState extends State<HomeScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
-    _pulseAnimation =
-        Tween<double>(begin: 1.0, end: 1.12).animate(_pulseController);
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.12,
+    ).animate(_pulseController);
 
     _requestPermissions();
     _loadRecordings();
@@ -75,12 +80,21 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    if (_settingsProvider != settings) {
+      _settingsProvider?.removeListener(_handleSettingsChanged);
+      _settingsProvider = settings;
+      settings.addListener(_handleSettingsChanged);
+    }
+
     if (!_didSetup) {
       _didSetup = true;
-      _setupShakeDetection();
+      _setupMotionDetection(settings);
 
-      final playerService =
-          Provider.of<AudioPlayerService>(context, listen: false);
+      final playerService = Provider.of<AudioPlayerService>(
+        context,
+        listen: false,
+      );
       _playerSubscription = playerService.playerStateStream.listen((state) {
         if (mounted) {
           setState(() {
@@ -93,28 +107,55 @@ class _HomeScreenState extends State<HomeScreen>
       });
 
       // Restore persisted effect index.
-      final settings = Provider.of<SettingsProvider>(context, listen: false);
-      final idx = settings.selectedEffectIndex
-          .clamp(0, model.AudioEffect.presets.length - 1);
+      final idx = settings.selectedEffectIndex.clamp(
+        0,
+        model.AudioEffect.presets.length - 1,
+      );
       _selectedEffect = model.AudioEffect.presets[idx];
     }
   }
 
-  void _setupShakeDetection() {
-    _shakeSubscription?.cancel();
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
+  void _handleSettingsChanged() {
+    if (!mounted || _settingsProvider == null) return;
+    _setupMotionDetection(_settingsProvider!);
+  }
+
+  void _setupMotionDetection(SettingsProvider settings) {
     final shakeService = ShakeService();
+    _shakeSubscription ??= shakeService.onShake.listen(
+      (_) => _onShakeDetected(),
+    );
     shakeService.start(settings.shakeSensitivity);
-    _shakeSubscription = shakeService.onShake.listen((_) => _onShakeDetected());
+    shakeService.updateSensitivity(settings.shakeSensitivity);
+    _syncSlapDetection(settings);
+  }
+
+  void _syncSlapDetection(SettingsProvider settings) {
+    final slapService = SlapService();
+    if (settings.isSlapModeEnabled) {
+      slapService.start(sensitivity: settings.slapSensitivity);
+      slapService.updateSensitivity(settings.slapSensitivity);
+      _slapSubscription ??= slapService.onSlap.listen(_onSlapDetected);
+    } else {
+      _slapSubscription?.cancel();
+      _slapSubscription = null;
+      slapService.stop();
+    }
   }
 
   Future<void> _onShakeDetected() async {
+    HapticFeedback.heavyImpact();
+    await _playMotionTriggeredSound(volume: 1.0);
+  }
+
+  Future<void> _playMotionTriggeredSound({required double volume}) async {
     if (_recordings.isEmpty) return;
     if (_currentShakeIndex >= _recordings.length) _currentShakeIndex = 0;
     final path = _recordings[_currentShakeIndex];
-    HapticFeedback.heavyImpact();
+    final playbackVolume = volume.clamp(0.0, 1.0).toDouble();
     try {
       if (_isShakePlaying) await _shakePlayer.stop();
+      await _shakePlayer.setVolume(playbackVolume);
       await _shakePlayer.setFilePath(path);
       await _shakePlayer.play();
       _currentShakeIndex = (_currentShakeIndex + 1) % _recordings.length;
@@ -123,12 +164,25 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  Future<void> _onSlapDetected(SlapImpact impact) async {
+    HapticFeedback.selectionClick();
+    await _playMotionTriggeredSound(volume: _volumeForSlapForce(impact.force));
+  }
+
+  double _volumeForSlapForce(double force) {
+    final normalizedForce = force.clamp(0.0, 1.0).toDouble();
+    return 0.35 + (normalizedForce * 0.65);
+  }
+
   @override
   void dispose() {
     _uiTimer?.cancel();
     _playerSubscription?.cancel();
+    _settingsProvider?.removeListener(_handleSettingsChanged);
     _shakeSubscription?.cancel();
+    _slapSubscription?.cancel();
     ShakeService().stop();
+    SlapService().stop();
     _pulseController.dispose();
     _shakePlayer.dispose();
     super.dispose();
@@ -189,6 +243,7 @@ class _HomeScreenState extends State<HomeScreen>
     HapticFeedback.mediumImpact();
     final player = Provider.of<AudioPlayerService>(context, listen: false);
     if (_isPlaying) await player.stop();
+    if (!mounted) return;
 
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     if (!settings.isPremium &&
@@ -308,12 +363,13 @@ class _HomeScreenState extends State<HomeScreen>
         SnackBar(
           content: Text(
             'Reordered',
-            style: GoogleFonts.inter(color: Colors.white),
+            style: GoogleFonts.inter(color: ChaosColors.text),
           ),
-          backgroundColor: Colors.white10,
+          backgroundColor: ChaosColors.panelHigh,
           behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           action: SnackBarAction(
             label: 'Undo',
             textColor: Theme.of(context).colorScheme.primary,
@@ -356,7 +412,9 @@ class _HomeScreenState extends State<HomeScreen>
             onPressed: () async {
               Navigator.pop(context);
               await _recorderService.setRecordingName(
-                  path, controller.text.trim());
+                path,
+                controller.text.trim(),
+              );
               await _loadRecordings();
             },
             child: const Text('Save'),
@@ -367,7 +425,6 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showSoundOptions(String path, String name, int index) {
-    final accentColor = Theme.of(context).colorScheme.primary;
     showCupertinoModalPopup(
       context: context,
       builder: (_) => CupertinoActionSheet(
@@ -383,9 +440,11 @@ class _HomeScreenState extends State<HomeScreen>
           CupertinoActionSheetAction(
             onPressed: () async {
               Navigator.pop(context);
-              await Share.shareXFiles(
-                [XFile(path)],
-                text: 'Check out this sound from Chaos!',
+              await SharePlus.instance.share(
+                ShareParams(
+                  files: [XFile(path)],
+                  text: 'Check out this sound from Chaos!',
+                ),
               );
             },
             child: const Text('Share'),
@@ -408,7 +467,6 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showPremiumGate() {
-    final accentColor = Theme.of(context).colorScheme.primary;
     showCupertinoDialog(
       context: context,
       builder: (_) => CupertinoAlertDialog(
@@ -459,7 +517,7 @@ class _HomeScreenState extends State<HomeScreen>
                 style: GoogleFonts.inter(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: ChaosColors.text,
                 ),
               ),
             ),
@@ -471,20 +529,29 @@ class _HomeScreenState extends State<HomeScreen>
                   child: Text(
                     'Clear All',
                     style: GoogleFonts.inter(
-                        color: Colors.white38, fontSize: 15),
+                      color: ChaosColors.faint,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
             ],
+          ),
+
+          SliverToBoxAdapter(
+            child: _buildTriggerStatusStrip(settings, accentColor),
           ),
 
           // ── Recordings or empty state ─────────────────────────────────────
           _recordings.isEmpty
               ? SliverFillRemaining(child: _buildEmptyState(accentColor))
               : SliverPadding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
                   sliver: SliverReorderableList(
                     itemCount: _recordings.length,
+                    // ignore: deprecated_member_use
                     onReorder: _onReorder,
                     itemBuilder: (context, index) {
                       final path = _recordings[index];
@@ -502,16 +569,20 @@ class _HomeScreenState extends State<HomeScreen>
                     },
                     proxyDecorator: (child, index, animation) =>
                         AnimatedBuilder(
-                      animation: animation,
-                      builder: (_, c) => Transform.scale(
-                        scale: Tween<double>(begin: 1.0, end: 1.04)
-                            .animate(CurvedAnimation(
-                                parent: animation, curve: Curves.easeOut))
-                            .value,
-                        child: c,
-                      ),
-                      child: child,
-                    ),
+                          animation: animation,
+                          builder: (_, c) => Transform.scale(
+                            scale: Tween<double>(begin: 1.0, end: 1.04)
+                                .animate(
+                                  CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeOut,
+                                  ),
+                                )
+                                .value,
+                            child: c,
+                          ),
+                          child: child,
+                        ),
                   ),
                 ),
 
@@ -525,6 +596,45 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildTriggerStatusStrip(
+    SettingsProvider settings,
+    Color accentColor,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: ChaosDecorations.panel(
+          color: ChaosColors.panel,
+          radius: 22,
+        ),
+        child: Row(
+          children: [
+            _StatusPill(
+              icon: CupertinoIcons.waveform,
+              label: '${_recordings.length} sounds',
+              color: accentColor,
+            ),
+            const SizedBox(width: 8),
+            _StatusPill(
+              icon: CupertinoIcons.hand_raised_fill,
+              label: settings.isSlapModeEnabled ? 'Slap armed' : 'Slap off',
+              color: settings.isSlapModeEnabled
+                  ? ChaosColors.coral
+                  : ChaosColors.faint,
+            ),
+            const SizedBox(width: 8),
+            _StatusPill(
+              icon: CupertinoIcons.device_phone_portrait,
+              label: 'Shake ready',
+              color: ChaosColors.green,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState(Color accentColor) {
     return Center(
       child: Column(
@@ -534,18 +644,20 @@ class _HomeScreenState extends State<HomeScreen>
             padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.04),
-              border:
-                  Border.all(color: Colors.white.withOpacity(0.06), width: 1),
+              color: ChaosColors.panelHigh,
+              border: Border.all(color: ChaosColors.border),
             ),
-            child:
-                const Icon(Icons.mic_none_rounded, size: 44, color: Colors.white12),
+            child: const Icon(
+              Icons.mic_none_rounded,
+              size: 44,
+              color: ChaosColors.faint,
+            ),
           ),
           const SizedBox(height: 24),
           Text(
             'No sounds yet',
             style: GoogleFonts.inter(
-              color: Colors.white38,
+              color: ChaosColors.muted,
               fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
@@ -553,7 +665,7 @@ class _HomeScreenState extends State<HomeScreen>
           const SizedBox(height: 8),
           Text(
             'Hold the button below to record',
-            style: GoogleFonts.inter(color: Colors.white.withOpacity(0.18), fontSize: 14),
+            style: GoogleFonts.inter(color: ChaosColors.faint, fontSize: 14),
           ),
         ],
       ),
@@ -571,194 +683,166 @@ class _HomeScreenState extends State<HomeScreen>
     return Padding(
       key: key,
       padding: const EdgeInsets.only(bottom: 10),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: isPlayingThis
-                  ? accentColor.withOpacity(0.15)
-                  : Colors.white.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isPlayingThis
-                    ? accentColor.withOpacity(0.5)
-                    : Colors.white.withOpacity(0.08),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: isPlayingThis
+            ? ChaosDecorations.selectedPanel(accentColor, radius: 20)
+            : ChaosDecorations.panel(color: ChaosColors.panel, radius: 20),
+        child: Row(
+          children: [
+            ReorderableDragStartListener(
+              index: index,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Icons.drag_indicator_rounded,
+                  color: isPlayingThis
+                      ? accentColor.withValues(alpha: 0.65)
+                      : ChaosColors.faint,
+                  size: 20,
+                ),
               ),
             ),
-            child: Row(
-              children: [
-                // Drag handle
-                ReorderableDragStartListener(
-                  index: index,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.drag_indicator_rounded,
-                      color: isPlayingThis ? accentColor.withOpacity(0.5) : Colors.white.withOpacity(0.18),
-                      size: 20,
+            const SizedBox(width: 8),
+            Expanded(
+              child: GestureDetector(
+                onLongPress: () => _showRenameDialog(path, name),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: GoogleFonts.inter(
+                        color: isPlayingThis ? accentColor : ChaosColors.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Sound name
-                Expanded(
-                  child: GestureDetector(
-                    onLongPress: () => _showRenameDialog(path, name),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: GoogleFonts.inter(
-                            color: isPlayingThis ? accentColor : Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
+                    if (isPlayingThis)
+                      Text(
+                        '${_selectedEffect.name} · Playing',
+                        style: GoogleFonts.inter(
+                          color: accentColor.withValues(alpha: 0.75),
+                          fontSize: 11,
                         ),
-                        if (isPlayingThis)
-                          Text(
-                            '${_selectedEffect.name} · Playing',
-                            style: GoogleFonts.inter(
-                              color: accentColor.withOpacity(0.7),
-                              fontSize: 11,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                      ),
+                  ],
                 ),
-                // Play button
-                _CircleButton(
-                  icon: isPlayingThis
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
-                  color: isPlayingThis ? accentColor : Colors.white54,
-                  bgColor: isPlayingThis
-                      ? accentColor.withOpacity(0.15)
-                      : Colors.white.withOpacity(0.08),
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    _togglePlay(path);
-                  },
-                ),
-                const SizedBox(width: 8),
-                // More options
-                _CircleButton(
-                  icon: Icons.more_horiz_rounded,
-                  color: Colors.white38,
-                  bgColor: Colors.white.withOpacity(0.06),
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    _showSoundOptions(path, name, index);
-                  },
-                ),
-              ],
+              ),
             ),
-          ),
+            _CircleButton(
+              icon: isPlayingThis
+                  ? Icons.pause_rounded
+                  : Icons.play_arrow_rounded,
+              color: isPlayingThis ? accentColor : ChaosColors.muted,
+              bgColor: isPlayingThis
+                  ? accentColor.withValues(alpha: 0.16)
+                  : ChaosColors.panelPressed,
+              onTap: () {
+                HapticFeedback.lightImpact();
+                _togglePlay(path);
+              },
+            ),
+            const SizedBox(width: 8),
+            _CircleButton(
+              icon: Icons.more_horiz_rounded,
+              color: ChaosColors.muted,
+              bgColor: ChaosColors.panelPressed,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                _showSoundOptions(path, name, index);
+              },
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildRecordingPanel(Color accentColor, SettingsProvider settings) {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: EdgeInsets.fromLTRB(
-              24, 16, 24, MediaQuery.of(context).viewPadding.bottom + 16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            border:
-                Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Recording status
-              AnimatedCrossFade(
-                duration: const Duration(milliseconds: 200),
-                crossFadeState: _isRecording
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                firstChild: Text(
-                  'Hold to record  •  Max ${AppConstants.maxRecordingSeconds}s',
-                  style: GoogleFonts.inter(
-                      color: Colors.white24, fontSize: 12),
-                ),
-                secondChild: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: accentColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${_recordDuration}s / ${AppConstants.maxRecordingSeconds}s',
-                      style: GoogleFonts.inter(
-                        color: accentColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Mic button
-              GestureDetector(
-                onTapDown: (_) => _startRecording(),
-                onTapUp: (_) => _stopRecording(),
-                onTapCancel: () => _stopRecording(),
-                child: ScaleTransition(
-                  scale: _isRecording ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOutBack,
-                    width: _isRecording ? 80 : 64,
-                    height: _isRecording ? 80 : 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _isRecording
-                          ? accentColor.withOpacity(0.2)
-                          : Colors.white.withOpacity(0.06),
-                      border: Border.all(
-                        color: _isRecording ? accentColor : Colors.white.withOpacity(0.18),
-                        width: _isRecording ? 2.5 : 1.5,
-                      ),
-                      boxShadow: _isRecording
-                          ? [
-                              BoxShadow(
-                                color: accentColor.withOpacity(0.35),
-                                blurRadius: 30,
-                                spreadRadius: 4,
-                              )
-                            ]
-                          : [],
-                    ),
-                    child: Icon(
-                      _isRecording
-                          ? Icons.mic_rounded
-                          : Icons.mic_none_rounded,
-                      color: _isRecording ? accentColor : Colors.white54,
-                      size: _isRecording ? 32 : 26,
-                    ),
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        16,
+        24,
+        MediaQuery.of(context).viewPadding.bottom + 16,
+      ),
+      decoration: const BoxDecoration(
+        color: ChaosColors.panel,
+        border: Border(top: BorderSide(color: ChaosColors.border)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 200),
+            crossFadeState: _isRecording
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: Text(
+              'Hold to record  -  Max ${AppConstants.maxRecordingSeconds}s',
+              style: GoogleFonts.inter(color: ChaosColors.faint, fontSize: 12),
+            ),
+            secondChild: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              _buildEffectSelector(accentColor, settings),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  '${_recordDuration}s / ${AppConstants.maxRecordingSeconds}s',
+                  style: GoogleFonts.inter(
+                    color: accentColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTapDown: (_) => _startRecording(),
+            onTapUp: (_) => _stopRecording(),
+            onTapCancel: () => _stopRecording(),
+            child: ScaleTransition(
+              scale: _isRecording
+                  ? _pulseAnimation
+                  : const AlwaysStoppedAnimation(1.0),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutBack,
+                width: _isRecording ? 80 : 64,
+                height: _isRecording ? 80 : 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _isRecording
+                      ? accentColor.withValues(alpha: 0.16)
+                      : ChaosColors.panelPressed,
+                  border: Border.all(
+                    color: _isRecording
+                        ? accentColor
+                        : ChaosColors.borderStrong,
+                    width: _isRecording ? 2.5 : 1.5,
+                  ),
+                ),
+                child: Icon(
+                  _isRecording ? Icons.mic_rounded : Icons.mic_none_rounded,
+                  color: _isRecording ? accentColor : ChaosColors.muted,
+                  size: _isRecording ? 32 : 26,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildEffectSelector(accentColor, settings),
+        ],
       ),
     );
   }
@@ -780,33 +864,30 @@ class _HomeScreenState extends State<HomeScreen>
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? accentColor.withOpacity(0.12)
-                      : Colors.white.withOpacity(0.04),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected
-                        ? accentColor.withOpacity(0.6)
-                        : Colors.white.withOpacity(0.08),
-                  ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
+                decoration: isSelected
+                    ? ChaosDecorations.selectedPanel(accentColor, radius: 999)
+                    : ChaosDecorations.panel(
+                        color: ChaosColors.panelHigh,
+                        radius: 999,
+                      ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       effect.icon,
                       size: 14,
-                      color: isSelected ? accentColor : Colors.white24,
+                      color: isSelected ? accentColor : ChaosColors.faint,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       effect.name,
                       style: TextStyle(
                         fontSize: 12,
-                        color: isSelected ? accentColor : Colors.white30,
+                        color: isSelected ? accentColor : ChaosColors.muted,
                         fontWeight: isSelected
                             ? FontWeight.w600
                             : FontWeight.normal,
@@ -818,6 +899,55 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           );
         }),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _StatusPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            color.withValues(alpha: 0.12),
+            ChaosColors.panelHigh,
+          ),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.28)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 14),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  color: ChaosColors.text,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -844,10 +974,7 @@ class _CircleButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: bgColor,
-        ),
+        decoration: BoxDecoration(shape: BoxShape.circle, color: bgColor),
         child: Icon(icon, color: color, size: 20),
       ),
     );

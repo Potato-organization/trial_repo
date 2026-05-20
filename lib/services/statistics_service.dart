@@ -29,7 +29,9 @@ class StatisticsService {
   }
 
   /// Returns a sorted list of (soundId, playCount) pairs, highest first.
-  static Future<List<MapEntry<String, int>>> getTopSounds({int limit = 50}) async {
+  static Future<List<MapEntry<String, int>>> getTopSounds({
+    int limit = 50,
+  }) async {
     final stats = await getStats();
     final sorted = stats.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));

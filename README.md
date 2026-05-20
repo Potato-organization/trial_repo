@@ -1,16 +1,21 @@
-# trial
+# Chaos
 
-A new Flutter project.
+Chaos is a playful Flutter soundboard for recording short sounds, playing built-in sound packs, and triggering clips with gestures or prank tools.
 
-## Getting Started
+## Release Checks
 
-This project is a starting point for a Flutter application.
+Run these before uploading a build:
 
-A few resources to get you started if this is your first Flutter project:
+```sh
+flutter analyze
+flutter test
+flutter build appbundle --release
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+The Play Store upload artifact is:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```text
+build/app/outputs/bundle/release/app-release.aab
+```
+
+Keep `android/key.properties` and Android keystore files private. They are ignored by git and are required only for signing release bundles.

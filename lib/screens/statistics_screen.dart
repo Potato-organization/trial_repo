@@ -1,11 +1,9 @@
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart' as p;
 import '../services/statistics_service.dart';
-import '../providers/settings_provider.dart';
-import '../constants.dart';
+import '../ui/chaos_design.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -69,7 +67,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 style: GoogleFonts.inter(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: ChaosColors.text,
                 ),
               ),
             ),
@@ -80,7 +78,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   onPressed: () => _showClearConfirm(context),
                   child: Text(
                     'Clear',
-                    style: GoogleFonts.inter(color: Colors.redAccent, fontSize: 15),
+                    style: GoogleFonts.inter(
+                      color: Colors.redAccent,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
             ],
@@ -88,14 +89,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
           if (_loading)
             const SliverFillRemaining(
-              child: Center(
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             )
           else if (_stats.isEmpty)
-            SliverFillRemaining(
-              child: _buildEmptyState(),
-            )
+            SliverFillRemaining(child: _buildEmptyState())
           else ...[
             // ── Summary card ────────────────────────────────────────────────
             SliverToBoxAdapter(
@@ -118,7 +115,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white24,
+                    color: ChaosColors.faint,
                     letterSpacing: 1.5,
                   ),
                 ),
@@ -129,26 +126,24 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final entry = _stats[index];
-                    final fraction =
-                        _totalPlays > 0 ? entry.value / _totalPlays : 0.0;
-                    final isFirst = index == 0;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _StatRow(
-                        rank: index + 1,
-                        name: _displayName(entry.key),
-                        count: entry.value,
-                        fraction: fraction,
-                        accentColor: accentColor,
-                        highlight: isFirst,
-                      ),
-                    );
-                  },
-                  childCount: _stats.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final entry = _stats[index];
+                  final fraction = _totalPlays > 0
+                      ? entry.value / _totalPlays
+                      : 0.0;
+                  final isFirst = index == 0;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _StatRow(
+                      rank: index + 1,
+                      name: _displayName(entry.key),
+                      count: entry.value,
+                      fraction: fraction,
+                      accentColor: accentColor,
+                      highlight: isFirst,
+                    ),
+                  );
+                }, childCount: _stats.length),
               ),
             ),
 
@@ -169,16 +164,19 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.05),
+              color: ChaosColors.panelHigh,
             ),
-            child: const Icon(Icons.bar_chart_rounded,
-                size: 40, color: Colors.white12),
+            child: const Icon(
+              Icons.bar_chart_rounded,
+              size: 40,
+              color: ChaosColors.faint,
+            ),
           ),
           const SizedBox(height: 20),
           Text(
             'No plays yet',
             style: GoogleFonts.inter(
-              color: Colors.white38,
+              color: ChaosColors.muted,
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -186,7 +184,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           const SizedBox(height: 8),
           Text(
             'Start playing sounds to see stats here',
-            style: GoogleFonts.inter(color: Colors.white24, fontSize: 14),
+            style: GoogleFonts.inter(color: ChaosColors.faint, fontSize: 14),
           ),
         ],
       ),
@@ -234,43 +232,45 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: ChaosDecorations.panel(radius: 22),
+      child: Row(
+        children: [
+          _Stat(
+            label: 'Total Plays',
+            value: '$totalPlays',
+            accentColor: accentColor,
           ),
-          child: Row(
-            children: [
-              _Stat(label: 'Total Plays', value: '$totalPlays', accentColor: accentColor),
-              const SizedBox(width: 1),
-              _divider(),
-              _Stat(label: 'Unique Sounds', value: '$uniqueSounds', accentColor: accentColor),
-            ],
+          const SizedBox(width: 1),
+          _divider(),
+          _Stat(
+            label: 'Unique Sounds',
+            value: '$uniqueSounds',
+            accentColor: accentColor,
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _divider() => Container(
-        width: 1,
-        height: 40,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        color: Colors.white12,
-      );
+    width: 1,
+    height: 40,
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    color: ChaosColors.border,
+  );
 }
 
 class _Stat extends StatelessWidget {
   final String label;
   final String value;
   final Color accentColor;
-  const _Stat({required this.label, required this.value, required this.accentColor});
+  const _Stat({
+    required this.label,
+    required this.value,
+    required this.accentColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -288,7 +288,7 @@ class _Stat extends StatelessWidget {
           ),
           Text(
             label,
-            style: GoogleFonts.inter(fontSize: 12, color: Colors.white38),
+            style: GoogleFonts.inter(fontSize: 12, color: ChaosColors.muted),
           ),
         ],
       ),
@@ -315,86 +315,71 @@ class _StatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: highlight
-                ? accentColor.withOpacity(0.08)
-                : Colors.white.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: highlight
-                  ? accentColor.withOpacity(0.25)
-                  : Colors.white.withOpacity(0.06),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: highlight
+          ? ChaosDecorations.selectedPanel(accentColor, radius: 20)
+          : ChaosDecorations.panel(color: ChaosColors.panel, radius: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  // Rank badge
-                  Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: highlight
-                          ? accentColor.withOpacity(0.2)
-                          : Colors.white.withOpacity(0.08),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$rank',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: highlight ? accentColor : Colors.white38,
-                        ),
-                      ),
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: highlight
+                      ? accentColor.withValues(alpha: 0.18)
+                      : ChaosColors.panelPressed,
+                ),
+                child: Center(
+                  child: Text(
+                    '$rank',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: highlight ? accentColor : ChaosColors.muted,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    '$count ${count == 1 ? "play" : "plays"}',
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: highlight ? accentColor : Colors.white38,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: fraction,
-                  backgroundColor: Colors.white.withOpacity(0.06),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    highlight ? accentColor : accentColor.withOpacity(0.5),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  name,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: ChaosColors.text,
                   ),
-                  minHeight: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                '$count ${count == 1 ? "play" : "plays"}',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: highlight ? accentColor : ChaosColors.muted,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: fraction,
+              backgroundColor: ChaosColors.panelPressed,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                highlight ? accentColor : accentColor.withValues(alpha: 0.55),
+              ),
+              minHeight: 4,
+            ),
+          ),
+        ],
       ),
     );
   }

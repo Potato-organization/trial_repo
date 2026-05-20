@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../ui/chaos_design.dart';
 
-enum NeonTheme { blue, green, pink }
+enum AppTheme { blue, green, coral }
 
 class ThemeProvider with ChangeNotifier {
-  NeonTheme _currentTheme = NeonTheme.blue;
+  AppTheme _currentTheme = AppTheme.blue;
   bool _isLoading = true;
-  final String _themeKey = 'neon_theme_accent';
+  final String _themeKey = 'app_theme_accent';
+  final String _legacyThemeKey = 'neon_theme_accent';
 
-  NeonTheme get currentTheme => _currentTheme;
+  AppTheme get currentTheme => _currentTheme;
   bool get isLoading => _isLoading;
 
   ThemeProvider() {
@@ -17,13 +19,20 @@ class ThemeProvider with ChangeNotifier {
 
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeIndex = prefs.getInt(_themeKey) ?? 0;
-    _currentTheme = NeonTheme.values[themeIndex];
+    final themeIndex =
+        prefs.getInt(_themeKey) ?? prefs.getInt(_legacyThemeKey) ?? 0;
+    final safeIndex = themeIndex >= 0 && themeIndex < AppTheme.values.length
+        ? themeIndex
+        : 0;
+    _currentTheme = AppTheme.values[safeIndex];
+    if (!prefs.containsKey(_themeKey)) {
+      await prefs.setInt(_themeKey, safeIndex);
+    }
     _isLoading = false;
     notifyListeners();
   }
 
-  void setTheme(NeonTheme theme) async {
+  void setTheme(AppTheme theme) async {
     _currentTheme = theme;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_themeKey, theme.index);
@@ -32,20 +41,20 @@ class ThemeProvider with ChangeNotifier {
 
   Color get accentColor {
     switch (_currentTheme) {
-      case NeonTheme.blue:
-        return Colors.blueAccent;
-      case NeonTheme.green:
-        return Colors.greenAccent;
-      case NeonTheme.pink:
-        return Colors.pinkAccent;
+      case AppTheme.blue:
+        return ChaosColors.blue;
+      case AppTheme.green:
+        return ChaosColors.green;
+      case AppTheme.coral:
+        return ChaosColors.coral;
     }
   }
 
   ThemeData getThemeData() {
     return ThemeData(
       brightness: Brightness.dark,
-      primaryColor: const Color(0xFF0A0E21),
-      scaffoldBackgroundColor: const Color(0xFF0A0E21),
+      primaryColor: ChaosColors.background,
+      scaffoldBackgroundColor: ChaosColors.background,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -53,8 +62,12 @@ class ThemeProvider with ChangeNotifier {
       colorScheme: ColorScheme.dark(
         primary: accentColor,
         secondary: accentColor,
-        surface: const Color(0xFF1D1E33),
+        surface: ChaosColors.panel,
+        onSurface: ChaosColors.text,
       ),
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      dividerColor: ChaosColors.border,
     );
   }
 }

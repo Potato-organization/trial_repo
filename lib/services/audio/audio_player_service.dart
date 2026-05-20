@@ -11,9 +11,15 @@ class AudioPlayerService {
 
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
 
-  Future<void> play(String path, {double pitch = 1.0, double speed = 1.0}) async {
+  Future<void> play(
+    String path, {
+    double pitch = 1.0,
+    double speed = 1.0,
+    double volume = 1.0,
+  }) async {
     _pitch = pitch;
     _speed = speed;
+    final playbackVolume = volume.clamp(0.0, 1.0).toDouble();
 
     final prefs = await SharedPreferences.getInstance();
     final stealthMode = prefs.getBool('stealth_mode') ?? false;
@@ -21,6 +27,8 @@ class AudioPlayerService {
     try {
       if (stealthMode) {
         await _player.setVolume(1.0);
+      } else {
+        await _player.setVolume(playbackVolume);
       }
       await _player.setFilePath(path);
       await _player.setPitch(_pitch);
@@ -32,8 +40,11 @@ class AudioPlayerService {
     }
   }
 
-  Future<void> playAsset(String assetPath,
-      {double pitch = 1.0, double speed = 1.0}) async {
+  Future<void> playAsset(
+    String assetPath, {
+    double pitch = 1.0,
+    double speed = 1.0,
+  }) async {
     try {
       await _player.setAsset(assetPath);
       await _player.setPitch(pitch);
@@ -53,4 +64,3 @@ class AudioPlayerService {
     _player.dispose();
   }
 }
-

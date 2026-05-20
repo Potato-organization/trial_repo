@@ -1,4 +1,4 @@
-import 'dart:ui';
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/iap_service.dart';
+import '../../ui/chaos_design.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -33,7 +34,7 @@ class SettingsScreen extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: ChaosColors.text,
                 ),
               ),
             ),
@@ -48,81 +49,124 @@ class SettingsScreen extends StatelessWidget {
                   accentColor: accentColor,
                   isPremium: settings.isPremium,
                   onUpgrade: () async {
-                    await IAPService().buyPro();
-                    Provider.of<SettingsProvider>(context, listen: false)
-                        .setPremium(true);
+                    final started = await IAPService().buyPro();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          started
+                              ? 'Purchase started. Chaos Pro unlocks after Google Play confirms it.'
+                              : 'Purchase is not available yet. Check the Play Console product setup.',
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 32),
 
-                // ── Chaos Settings ────────────────────────────────────────────
                 _SectionHeader('CHAOS SETTINGS'),
                 const SizedBox(height: 12),
-                _SettingsGroup(children: [
-                  _SwitchRow(
-                    icon: CupertinoIcons.eye_slash,
-                    title: 'Stealth Mode',
-                    subtitle: 'Override system volume when playing.',
-                    value: settings.stealthMode,
-                    accentColor: accentColor,
-                    onChanged: settings.setStealthMode,
-                  ),
-                  _Separator(),
-                  _SliderRow(
-                    icon: CupertinoIcons.waveform,
-                    title: 'Shake Sensitivity',
-                    value: settings.shakeSensitivity,
-                    min: 5,
-                    max: 30,
-                    accentColor: accentColor,
-                    displayValue: settings.shakeSensitivity.toStringAsFixed(1),
-                    onChanged: settings.setSensitivity,
-                  ),
-                  _Separator(),
-                  _SliderRow(
-                    icon: CupertinoIcons.hand_point_right,
-                    title: 'Clap Sensitivity',
-                    value: settings.clapSensitivity,
-                    min: 60,
-                    max: 120,
-                    accentColor: accentColor,
-                    displayValue: '${settings.clapSensitivity.toStringAsFixed(0)} dB',
-                    onChanged: settings.setClapSensitivity,
-                  ),
-                ]),
+                _SettingsGroup(
+                  children: [
+                    _SwitchRow(
+                      icon: CupertinoIcons.speaker_2_fill,
+                      title: 'Playback Boost',
+                      subtitle:
+                          'Use full app playback volume for sound effects.',
+                      value: settings.stealthMode,
+                      accentColor: accentColor,
+                      onChanged: settings.setStealthMode,
+                    ),
+                    _Separator(),
+                    _SwitchRow(
+                      icon: CupertinoIcons.hand_raised_fill,
+                      title: 'Slap Mode',
+                      subtitle: 'Play the next sound when the phone is tapped.',
+                      value: settings.isSlapModeEnabled,
+                      accentColor: accentColor,
+                      onChanged: settings.setSlapMode,
+                    ),
+                    if (settings.isSlapModeEnabled) ...[
+                      _Separator(),
+                      _SliderRow(
+                        icon: CupertinoIcons.hand_draw,
+                        title: 'Slap Sensitivity',
+                        value: settings.slapSensitivity,
+                        min: 0,
+                        max: 1,
+                        accentColor: accentColor,
+                        displayValue: _slapSensitivityLabel(
+                          settings.slapSensitivity,
+                        ),
+                        onChanged: settings.setSlapSensitivity,
+                      ),
+                    ],
+                    _Separator(),
+                    _SliderRow(
+                      icon: CupertinoIcons.waveform,
+                      title: 'Shake Sensitivity',
+                      value: settings.shakeSensitivity,
+                      min: 5,
+                      max: 30,
+                      accentColor: accentColor,
+                      displayValue: settings.shakeSensitivity.toStringAsFixed(
+                        1,
+                      ),
+                      onChanged: settings.setSensitivity,
+                    ),
+                    _Separator(),
+                    _SliderRow(
+                      icon: CupertinoIcons.hand_point_right,
+                      title: 'Clap Sensitivity',
+                      value: settings.clapSensitivity,
+                      min: 60,
+                      max: 120,
+                      accentColor: accentColor,
+                      displayValue:
+                          '${settings.clapSensitivity.toStringAsFixed(0)} dB',
+                      onChanged: settings.setClapSensitivity,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 32),
 
-                // ── App Settings ──────────────────────────────────────────────
                 _SectionHeader('APP SETTINGS'),
                 const SizedBox(height: 12),
-                _SettingsGroup(children: [
-                  _SwitchRow(
-                    icon: CupertinoIcons.bolt,
-                    title: 'Background Triggers',
-                    subtitle:
-                        settings.isPremium ? 'Keeps working when app is closed.' : 'Pro only',
-                    value: settings.isPremium
-                        ? settings.isBackgroundTriggersActive
-                        : false,
-                    accentColor: settings.isPremium ? accentColor : Colors.white24,
-                    onChanged: settings.isPremium
-                        ? settings.setBackgroundTriggers
-                        : (_) => _showPremiumPrompt(context, accentColor),
-                  ),
-                ]),
+                _SettingsGroup(
+                  children: [
+                    _SwitchRow(
+                      icon: CupertinoIcons.bolt,
+                      title: 'Background Triggers',
+                      subtitle: settings.isPremium
+                          ? 'Keeps working when app is closed.'
+                          : 'Pro only',
+                      value: settings.isPremium
+                          ? settings.isBackgroundTriggersActive
+                          : false,
+                      accentColor: settings.isPremium
+                          ? accentColor
+                          : ChaosColors.faint,
+                      onChanged: settings.isPremium
+                          ? settings.setBackgroundTriggers
+                          : (_) => _showPremiumPrompt(context, accentColor),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 32),
 
-                // ── Customisation ─────────────────────────────────────────────
                 _SectionHeader('CUSTOMISATION'),
                 const SizedBox(height: 12),
                 _ThemeSelector(themeProvider: themeProvider),
                 const SizedBox(height: 40),
 
-                // ── Footer ─────────────────────────────────────────────────────
                 Center(
                   child: Text(
-                    'Chaos Version 1.1.0 (Beta)',
-                    style: GoogleFonts.inter(color: Colors.white12, fontSize: 12),
+                    'Chaos Version 1.1.0',
+                    style: GoogleFonts.inter(
+                      color: ChaosColors.faint,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -132,6 +176,12 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static String _slapSensitivityLabel(double value) {
+    if (value < 0.34) return 'Firm';
+    if (value < 0.67) return 'Normal';
+    return 'Light';
   }
 
   static void _showPremiumPrompt(BuildContext context, Color accentColor) {
@@ -158,8 +208,6 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-// ── Subwidgets ──────────────────────────────────────────────────────────────
-
 class _SectionHeader extends StatelessWidget {
   final String title;
   const _SectionHeader(this.title);
@@ -171,7 +219,7 @@ class _SectionHeader extends StatelessWidget {
       style: GoogleFonts.inter(
         fontSize: 12,
         fontWeight: FontWeight.w600,
-        color: Colors.white24,
+        color: ChaosColors.faint,
         letterSpacing: 1.5,
       ),
     );
@@ -186,16 +234,9 @@ class _SettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.07)),
-          ),
-          child: Column(children: children),
-        ),
+      child: Container(
+        decoration: ChaosDecorations.panel(radius: 22),
+        child: Column(children: children),
       ),
     );
   }
@@ -207,7 +248,7 @@ class _Separator extends StatelessWidget {
     return Container(
       height: 1,
       margin: const EdgeInsets.only(left: 56),
-      color: Colors.white.withOpacity(0.06),
+      color: ChaosColors.border,
     );
   }
 }
@@ -237,11 +278,11 @@ class _SwitchRow extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(10),
+            decoration: ChaosDecorations.panel(
+              color: ChaosColors.panelHigh,
+              radius: 14,
             ),
-            child: Icon(icon, color: Colors.white54, size: 18),
+            child: Icon(icon, color: ChaosColors.muted, size: 18),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -251,22 +292,25 @@ class _SwitchRow extends StatelessWidget {
                 Text(
                   title,
                   style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                      fontSize: 15),
+                    fontWeight: FontWeight.w600,
+                    color: ChaosColors.text,
+                    fontSize: 15,
+                  ),
                 ),
                 if (subtitle != null)
                   Text(
                     subtitle!,
                     style: GoogleFonts.inter(
-                        color: Colors.white30, fontSize: 12),
+                      color: ChaosColors.faint,
+                      fontSize: 12,
+                    ),
                   ),
               ],
             ),
           ),
           CupertinoSwitch(
             value: value,
-            activeColor: accentColor,
+            activeTrackColor: accentColor,
             onChanged: onChanged,
           ),
         ],
@@ -306,26 +350,30 @@ class _SliderRow extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(10),
+                decoration: ChaosDecorations.panel(
+                  color: ChaosColors.panelHigh,
+                  radius: 14,
                 ),
-                child: Icon(icon, color: Colors.white54, size: 18),
+                child: Icon(icon, color: ChaosColors.muted, size: 18),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
                   title,
                   style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                      fontSize: 15),
+                    fontWeight: FontWeight.w600,
+                    color: ChaosColors.text,
+                    fontSize: 15,
+                  ),
                 ),
               ),
               Text(
                 displayValue,
                 style: GoogleFonts.inter(
-                    color: accentColor, fontWeight: FontWeight.w700, fontSize: 14),
+                  color: accentColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
@@ -357,98 +405,78 @@ class _PremiumCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: isPremium
-                ? LinearGradient(
-                    colors: [accentColor, accentColor.withOpacity(0.5)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : LinearGradient(
-                    colors: [
-                      const Color(0xFF1D1E33),
-                      const Color(0xFF0A0E21)
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-            borderRadius: BorderRadius.circular(24),
-            border:
-                Border.all(color: accentColor.withOpacity(isPremium ? 0 : 0.3)),
-            boxShadow: isPremium
-                ? [
-                    BoxShadow(
-                        color: accentColor.withOpacity(0.25),
-                        blurRadius: 30,
-                        spreadRadius: 4)
-                  ]
-                : [],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    isPremium
-                        ? CupertinoIcons.checkmark_seal_fill
-                        : CupertinoIcons.star,
-                    color: isPremium ? Colors.black : accentColor,
-                    size: 32,
-                  ),
-                  const SizedBox(width: 14),
-                  Text(
-                    isPremium ? 'CHAOS PRO' : 'UPGRADE TO PRO',
-                    style: GoogleFonts.inter(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: isPremium ? Colors.black : Colors.white,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                isPremium
-                    ? 'All features unlocked. You\'re a chaos legend. 🎉'
-                    : 'Unlimited recordings, background triggers, and all sound packs.',
-                style: GoogleFonts.inter(
-                  color: isPremium ? Colors.black.withOpacity(0.7) : Colors.white54,
-                  fontSize: 14,
-                  height: 1.5,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: ChaosDecorations.panel(
+          color: isPremium
+              ? Color.alphaBlend(
+                  accentColor.withValues(alpha: 0.18),
+                  ChaosColors.panelHigh,
+                )
+              : ChaosColors.panelHigh,
+          borderColor: isPremium ? accentColor : ChaosColors.borderStrong,
+          radius: 24,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isPremium
+                      ? CupertinoIcons.checkmark_seal_fill
+                      : CupertinoIcons.star,
+                  color: accentColor,
+                  size: 32,
                 ),
+                const SizedBox(width: 14),
+                Text(
+                  isPremium ? 'CHAOS PRO' : 'UPGRADE TO PRO',
+                  style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: ChaosColors.text,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              isPremium
+                  ? 'All features unlocked.'
+                  : 'Unlimited recordings, background triggers, and all sound packs.',
+              style: GoogleFonts.inter(
+                color: ChaosColors.muted,
+                fontSize: 14,
+                height: 1.5,
               ),
-              if (!isPremium) ...[
-                const SizedBox(height: 20),
-                GestureDetector(
-                  onTap: onUpgrade,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      color: accentColor,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Go Pro — \$1.99',
-                        style: GoogleFonts.inter(
-                          color: Colors.black,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                        ),
+            ),
+            if (!isPremium) ...[
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: onUpgrade,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Go Pro - \$1.99',
+                      style: GoogleFonts.inter(
+                        color: ChaosColors.background,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
                       ),
                     ),
                   ),
                 ),
-              ],
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -461,72 +489,57 @@ class _ThemeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.07)),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: ChaosDecorations.panel(radius: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Accent Color',
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              fontSize: 15,
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Text(
-                'Accent Colour',
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700, color: Colors.white, fontSize: 15),
+              _ThemeChip(
+                color: ChaosColors.blue,
+                label: 'Blue',
+                isSelected: themeProvider.currentTheme == AppTheme.blue,
+                onTap: () => themeProvider.setTheme(AppTheme.blue),
               ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _ThemeChip(
-                    theme: NeonTheme.blue,
-                    color: Colors.blueAccent,
-                    label: 'Blue',
-                    isSelected:
-                        themeProvider.currentTheme == NeonTheme.blue,
-                    onTap: () => themeProvider.setTheme(NeonTheme.blue),
-                  ),
-                  _ThemeChip(
-                    theme: NeonTheme.green,
-                    color: Colors.greenAccent,
-                    label: 'Green',
-                    isSelected:
-                        themeProvider.currentTheme == NeonTheme.green,
-                    onTap: () => themeProvider.setTheme(NeonTheme.green),
-                  ),
-                  _ThemeChip(
-                    theme: NeonTheme.pink,
-                    color: Colors.pinkAccent,
-                    label: 'Pink',
-                    isSelected:
-                        themeProvider.currentTheme == NeonTheme.pink,
-                    onTap: () => themeProvider.setTheme(NeonTheme.pink),
-                  ),
-                ],
+              _ThemeChip(
+                color: ChaosColors.green,
+                label: 'Green',
+                isSelected: themeProvider.currentTheme == AppTheme.green,
+                onTap: () => themeProvider.setTheme(AppTheme.green),
+              ),
+              _ThemeChip(
+                color: ChaosColors.coral,
+                label: 'Coral',
+                isSelected: themeProvider.currentTheme == AppTheme.coral,
+                onTap: () => themeProvider.setTheme(AppTheme.coral),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
 class _ThemeChip extends StatelessWidget {
-  final NeonTheme theme;
   final Color color;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _ThemeChip({
-    required this.theme,
     required this.color,
     required this.label,
     required this.isSelected,
@@ -545,27 +558,29 @@ class _ThemeChip extends StatelessWidget {
             height: 56,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: color.withOpacity(isSelected ? 0.25 : 0.1),
+              color: isSelected
+                  ? Color.alphaBlend(
+                      color.withValues(alpha: 0.22),
+                      ChaosColors.panelHigh,
+                    )
+                  : ChaosColors.panelHigh,
               border: Border.all(
-                color: isSelected ? color : Colors.transparent,
+                color: isSelected ? color : ChaosColors.border,
                 width: 2.5,
               ),
-              boxShadow: isSelected
-                  ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 16)]
-                  : [],
             ),
             child: Center(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: isSelected ? 28 : 22,
                 height: isSelected ? 28 : 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color,
-                ),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: color),
                 child: isSelected
-                    ? const Icon(Icons.check_rounded,
-                        color: Colors.black, size: 16)
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: ChaosColors.background,
+                        size: 16,
+                      )
                     : null,
               ),
             ),
@@ -574,10 +589,9 @@ class _ThemeChip extends StatelessWidget {
           Text(
             label,
             style: GoogleFonts.inter(
-              color: isSelected ? color : Colors.white30,
+              color: isSelected ? color : ChaosColors.faint,
               fontSize: 12,
-              fontWeight:
-                  isSelected ? FontWeight.w700 : FontWeight.normal,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
             ),
           ),
         ],

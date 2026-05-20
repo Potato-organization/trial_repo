@@ -33,7 +33,7 @@ class AlarmService {
         alarmId,
         _callback,
         startAt: time,
-        exact: true,
+        exact: false,
         wakeup: true,
       );
     } else {
@@ -41,7 +41,7 @@ class AlarmService {
         time,
         alarmId,
         _callback,
-        exact: true,
+        exact: false,
         wakeup: true,
       );
     }
@@ -69,4 +69,3 @@ class AlarmService {
     }
   }
 }
-

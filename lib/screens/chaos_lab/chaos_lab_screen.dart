@@ -1,7 +1,7 @@
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,9 +11,9 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants.dart';
 import '../../models/chaos_alarm.dart';
-import '../../providers/settings_provider.dart';
 import '../../services/alarm_service.dart';
 import '../../services/audio/audio_player_service.dart';
+import '../../ui/chaos_design.dart';
 import 'prank_tools_view.dart';
 
 class ChaosLabScreen extends StatefulWidget {
@@ -58,13 +58,18 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
     final raw = prefs.getStringList(AppConstants.alarmsKey) ?? [];
     if (mounted) {
       setState(() {
-        _alarms = raw.map((s) {
-          try {
-            return ChaosAlarm.fromJson(jsonDecode(s) as Map<String, dynamic>);
-          } catch (_) {
-            return null;
-          }
-        }).whereType<ChaosAlarm>().toList();
+        _alarms = raw
+            .map((s) {
+              try {
+                return ChaosAlarm.fromJson(
+                  jsonDecode(s) as Map<String, dynamic>,
+                );
+              } catch (_) {
+                return null;
+              }
+            })
+            .whereType<ChaosAlarm>()
+            .toList();
       });
     }
   }
@@ -80,9 +85,9 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
       context: context,
       initialTime: TimeOfDay.now(),
       builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme,
-        ),
+        data: Theme.of(
+          context,
+        ).copyWith(colorScheme: Theme.of(context).colorScheme),
         child: child!,
       ),
     );
@@ -96,20 +101,33 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
       isRandom: true,
     );
 
+    final now = DateTime.now();
+    final alarmTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      picked.hour,
+      picked.minute,
+    );
+    final firstRun = alarmTime.isBefore(now)
+        ? alarmTime.add(const Duration(days: 1))
+        : alarmTime;
+    await AlarmService.scheduleAlarm(alarm.androidAlarmId, firstRun, true);
+
+    if (!mounted) return;
+    final alarmLabel = picked.format(context);
     setState(() => _alarms.add(alarm));
     await _saveAlarms();
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Alarm added for ${picked.format(context)}'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.white10,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Alarm added for $alarmLabel'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ChaosColors.panelHigh,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   Future<void> _deleteAlarm(ChaosAlarm alarm) async {
@@ -122,21 +140,27 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
     if (val) {
       final now = DateTime.now();
       final alarmTime = DateTime(
-        now.year, now.month, now.day, alarm.time.hour, alarm.time.minute,
+        now.year,
+        now.month,
+        now.day,
+        alarm.time.hour,
+        alarm.time.minute,
       );
-      final finalTime =
-          alarmTime.isBefore(now) ? alarmTime.add(const Duration(days: 1)) : alarmTime;
+      final finalTime = alarmTime.isBefore(now)
+          ? alarmTime.add(const Duration(days: 1))
+          : alarmTime;
       await AlarmService.scheduleAlarm(alarm.androidAlarmId, finalTime, true);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content:
-              Text('Alarm set for ${DateFormat.Hm().format(finalTime)}'),
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Alarm set for ${DateFormat.Hm().format(finalTime)}'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.white10,
+          backgroundColor: ChaosColors.panelHigh,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-        ));
-      }
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     } else {
       await AlarmService.cancelAlarm(alarm.androidAlarmId);
     }
@@ -165,8 +189,7 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
 
   void _scheduleChaosSound(AudioPlayerService player) async {
     final range = _chaosMaxInterval - _chaosMinInterval;
-    final delay =
-        _chaosMinInterval + (range > 0 ? Random().nextInt(range) : 0);
+    final delay = _chaosMinInterval + (range > 0 ? Random().nextInt(range) : 0);
     setState(() => _chaosModeStatus = 'Next in ${delay}s…');
     _chaosModeTimer = Timer(Duration(seconds: delay), () async {
       if (!_chaosModeActive) return;
@@ -215,9 +238,11 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
               indicatorColor: accentColor,
               indicatorSize: TabBarIndicatorSize.label,
               labelColor: accentColor,
-              unselectedLabelColor: Colors.white24,
-              labelStyle:
-                  GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+              unselectedLabelColor: ChaosColors.faint,
+              labelStyle: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
               tabs: const [
                 Tab(text: 'Alarms'),
                 Tab(text: 'Pranks'),
@@ -254,7 +279,7 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white24,
+                    color: ChaosColors.faint,
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -262,11 +287,19 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
                   onTap: _addAlarm,
                   child: Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
+                    decoration: ChaosDecorations.panel(
+                      color: Color.alphaBlend(
+                        accentColor.withValues(alpha: 0.14),
+                        ChaosColors.panelHigh,
+                      ),
+                      borderColor: accentColor.withValues(alpha: 0.45),
+                      radius: 999,
                     ),
-                    child: Icon(Icons.add_rounded, color: accentColor, size: 18),
+                    child: Icon(
+                      Icons.add_rounded,
+                      color: accentColor,
+                      size: 18,
+                    ),
                   ),
                 ),
               ],
@@ -280,20 +313,27 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(CupertinoIcons.alarm, size: 44, color: Colors.white12),
+                  const Icon(
+                    CupertinoIcons.alarm,
+                    size: 44,
+                    color: ChaosColors.faint,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'No alarms set',
                     style: GoogleFonts.inter(
-                        color: Colors.white38,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600),
+                      color: ChaosColors.muted,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Tap + to schedule a chaos alarm',
-                    style:
-                        GoogleFonts.inter(color: Colors.white24, fontSize: 13),
+                    style: GoogleFonts.inter(
+                      color: ChaosColors.faint,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -304,8 +344,7 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
             padding: const EdgeInsets.symmetric(horizontal: 20),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, i) =>
-                    _buildAlarmTile(_alarms[i], accentColor),
+                (context, i) => _buildAlarmTile(_alarms[i], accentColor),
                 childCount: _alarms.length,
               ),
             ),
@@ -318,7 +357,14 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
   Widget _buildAlarmTile(ChaosAlarm alarm, Color accentColor) {
     final now = DateTime.now();
     final timeStr = DateFormat.Hm().format(
-        DateTime(now.year, now.month, now.day, alarm.time.hour, alarm.time.minute));
+      DateTime(
+        now.year,
+        now.month,
+        now.day,
+        alarm.time.hour,
+        alarm.time.minute,
+      ),
+    );
 
     return Dismissible(
       key: ValueKey(alarm.id),
@@ -328,68 +374,59 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
         padding: const EdgeInsets.only(right: 20),
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: Colors.redAccent.withOpacity(0.15),
+          color: Colors.redAccent.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(18),
         ),
-        child:
-            const Icon(CupertinoIcons.trash, color: Colors.redAccent, size: 22),
+        child: const Icon(
+          CupertinoIcons.trash,
+          color: Colors.redAccent,
+          size: 22,
+        ),
       ),
       onDismissed: (_) => _deleteAlarm(alarm),
       child: Padding(
         padding: const EdgeInsets.only(bottom: 10),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-              decoration: BoxDecoration(
-                color: alarm.isEnabled
-                    ? accentColor.withOpacity(0.08)
-                    : Colors.white.withOpacity(0.04),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: alarm.isEnabled
-                      ? accentColor.withOpacity(0.2)
-                      : Colors.white.withOpacity(0.06),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+          decoration: alarm.isEnabled
+              ? ChaosDecorations.selectedPanel(accentColor, radius: 20)
+              : ChaosDecorations.panel(color: ChaosColors.panel, radius: 20),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      timeStr,
+                      style: GoogleFonts.inter(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w700,
+                        color: alarm.isEnabled
+                            ? ChaosColors.text
+                            : ChaosColors.faint,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      alarm.isRandom ? 'Random Sound' : 'Custom Sound',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: alarm.isEnabled
+                            ? accentColor.withValues(alpha: 0.82)
+                            : ChaosColors.faint,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          timeStr,
-                          style: GoogleFonts.inter(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w700,
-                            color: alarm.isEnabled ? Colors.white : Colors.white30,
-                            height: 1.1,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          alarm.isRandom ? '🔀 Random Sound' : '🔊 Custom Sound',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: alarm.isEnabled
-                                ? accentColor.withOpacity(0.8)
-                                : Colors.white24,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  CupertinoSwitch(
-                    value: alarm.isEnabled,
-                    activeColor: accentColor,
-                    onChanged: (val) => _toggleAlarm(alarm, val),
-                  ),
-                ],
+              CupertinoSwitch(
+                value: alarm.isEnabled,
+                activeColor: accentColor,
+                onChanged: (val) => _toggleAlarm(alarm, val),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -406,99 +443,83 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header card
-          ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: _chaosModeActive
-                      ? LinearGradient(
-                          colors: [
-                            accentColor.withOpacity(0.2),
-                            accentColor.withOpacity(0.05),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
-                      : null,
-                  color: _chaosModeActive
-                      ? null
-                      : Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: _chaosModeActive
-                        ? accentColor.withOpacity(0.4)
-                        : Colors.white.withOpacity(0.07),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.all(24),
+            decoration: _chaosModeActive
+                ? ChaosDecorations.selectedPanel(accentColor, radius: 24)
+                : ChaosDecorations.panel(color: ChaosColors.panel, radius: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: _chaosModeActive
-                                ? accentColor.withOpacity(0.2)
-                                : Colors.white.withOpacity(0.06),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.shuffle_rounded,
-                            color:
-                                _chaosModeActive ? accentColor : Colors.white38,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Chaos Mode',
-                                style: GoogleFonts.inter(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              Text(
-                                _chaosModeStatus,
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: _chaosModeActive
-                                      ? accentColor
-                                      : Colors.white24,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        CupertinoSwitch(
-                          value: _chaosModeActive,
-                          activeColor: accentColor,
-                          onChanged: (val) =>
-                              _toggleChaosMode(val, player),
-                        ),
-                      ],
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.all(10),
+                      decoration: ChaosDecorations.panel(
+                        color: _chaosModeActive
+                            ? Color.alphaBlend(
+                                accentColor.withValues(alpha: 0.16),
+                                ChaosColors.panelHigh,
+                              )
+                            : ChaosColors.panelHigh,
+                        borderColor: _chaosModeActive
+                            ? accentColor.withValues(alpha: 0.45)
+                            : ChaosColors.border,
+                        radius: 16,
+                      ),
+                      child: Icon(
+                        Icons.shuffle_rounded,
+                        color: _chaosModeActive
+                            ? accentColor
+                            : ChaosColors.faint,
+                        size: 22,
+                      ),
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Plays random sounds at random intervals. Perfect for leaving the phone behind!',
-                      style: GoogleFonts.inter(
-                          color: Colors.white38, fontSize: 13, height: 1.5),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Chaos Mode',
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            _chaosModeStatus,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: _chaosModeActive
+                                  ? accentColor
+                                  : ChaosColors.faint,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    CupertinoSwitch(
+                      value: _chaosModeActive,
+                      activeColor: accentColor,
+                      onChanged: (val) => _toggleChaosMode(val, player),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 20),
+                Text(
+                  'Plays random sounds at random intervals. Perfect for leaving the phone behind!',
+                  style: GoogleFonts.inter(
+                    color: ChaosColors.muted,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
@@ -507,10 +528,11 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
           Text(
             'INTERVAL',
             style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white24,
-                letterSpacing: 1.5),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: ChaosColors.faint,
+              letterSpacing: 1.5,
+            ),
           ),
           const SizedBox(height: 12),
           _buildIntervalCard(accentColor),
@@ -520,46 +542,36 @@ class _ChaosLabScreenState extends State<ChaosLabScreen>
   }
 
   Widget _buildIntervalCard(Color accentColor) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.07)),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: ChaosDecorations.panel(color: ChaosColors.panel, radius: 20),
+      child: Column(
+        children: [
+          _IntervalRow(
+            label: 'Min',
+            value: _chaosMinInterval,
+            min: 5,
+            max: 120,
+            accentColor: accentColor,
+            enabled: !_chaosModeActive,
+            onChanged: (v) => setState(() => _chaosMinInterval = v),
           ),
-          child: Column(
-            children: [
-              _IntervalRow(
-                label: 'Min',
-                value: _chaosMinInterval,
-                min: 5,
-                max: 120,
-                accentColor: accentColor,
-                enabled: !_chaosModeActive,
-                onChanged: (v) => setState(() => _chaosMinInterval = v),
-              ),
-              const SizedBox(height: 16),
-              _IntervalRow(
-                label: 'Max',
-                value: _chaosMaxInterval,
-                min: 5,
-                max: 300,
-                accentColor: accentColor,
-                enabled: !_chaosModeActive,
-                onChanged: (v) => setState(() {
-                  _chaosMaxInterval = v;
-                  if (_chaosMaxInterval < _chaosMinInterval) {
-                    _chaosMinInterval = _chaosMaxInterval;
-                  }
-                }),
-              ),
-            ],
+          const SizedBox(height: 16),
+          _IntervalRow(
+            label: 'Max',
+            value: _chaosMaxInterval,
+            min: 5,
+            max: 300,
+            accentColor: accentColor,
+            enabled: !_chaosModeActive,
+            onChanged: (v) => setState(() {
+              _chaosMaxInterval = v;
+              if (_chaosMaxInterval < _chaosMinInterval) {
+                _chaosMinInterval = _chaosMaxInterval;
+              }
+            }),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -593,9 +605,10 @@ class _IntervalRow extends StatelessWidget {
           child: Text(
             label,
             style: GoogleFonts.inter(
-                color: Colors.white54,
-                fontSize: 13,
-                fontWeight: FontWeight.w500),
+              color: ChaosColors.muted,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         Expanded(
@@ -604,7 +617,7 @@ class _IntervalRow extends StatelessWidget {
             min: min.toDouble(),
             max: max.toDouble(),
             divisions: (max - min),
-            activeColor: enabled ? accentColor : Colors.white24,
+            activeColor: enabled ? accentColor : ChaosColors.faint,
             onChanged: enabled ? (v) => onChanged(v.round()) : null,
           ),
         ),
@@ -614,9 +627,10 @@ class _IntervalRow extends StatelessWidget {
             '${value}s',
             textAlign: TextAlign.right,
             style: GoogleFonts.inter(
-                color: enabled ? accentColor : Colors.white24,
-                fontWeight: FontWeight.w700,
-                fontSize: 13),
+              color: enabled ? accentColor : ChaosColors.faint,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
           ),
         ),
       ],

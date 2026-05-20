@@ -17,9 +17,6 @@ class TriggerService {
   static final Light _light = Light();
   static StreamSubscription<int>? _lightSubscription;
 
-  static bool _isClapDetectionActive = false;
-  static bool _isLightTriggerActive = false;
-
   /// Previous light state used to detect dark→light transition.
   static bool _wasLight = false;
 
@@ -41,9 +38,10 @@ class TriggerService {
     bool active, {
     double sensitivity = AppConstants.defaultClapSensitivity,
   }) async {
-    _isClapDetectionActive = active;
     if (active) {
       if (!await _ensureMicPermission()) return false;
+      await _noiseSubscription?.cancel();
+      _noiseSubscription = null;
       _noiseSubscription = _noiseMeter.noise.listen((NoiseReading reading) {
         if (reading.maxDecibel > sensitivity) {
           _triggerChaos('clap');
@@ -60,8 +58,9 @@ class TriggerService {
   // ── Light trigger ───────────────────────────────────────────────────────────
 
   static Future<void> toggleLightTrigger(bool active) async {
-    _isLightTriggerActive = active;
     if (active) {
+      await _lightSubscription?.cancel();
+      _lightSubscription = null;
       // Initialise with current lighting so the first read doesn't false-fire.
       _wasLight = false;
       _lightSubscription = _light.lightSensorStream.listen((int lux) {
@@ -103,4 +102,3 @@ class TriggerService {
     _lightSubscription = null;
   }
 }
-

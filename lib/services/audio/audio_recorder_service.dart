@@ -24,10 +24,7 @@ class AudioRecorderService {
       final currentCount = prefs.getInt(AppConstants.recordingCountKey) ?? 0;
       final newCount = currentCount + 1;
 
-      final String filePath = p.join(
-        directory.path,
-        'shake_$newCount.m4a',
-      );
+      final String filePath = p.join(directory.path, 'shake_$newCount.m4a');
 
       await _audioRecorder.start(
         const RecordConfig(encoder: AudioEncoder.aacLc),
@@ -64,18 +61,23 @@ class AudioRecorderService {
 
     final List<FileSystemEntity> files = directory.listSync();
 
-    final paths = files
-        .where((file) =>
-            file.path.contains('shake_') && file.path.endsWith('.m4a'))
-        .map((file) => file.path)
-        .toList()
-      ..sort((a, b) {
-        final numA =
-            int.tryParse(p.basename(a).replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-        final numB =
-            int.tryParse(p.basename(b).replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-        return numA.compareTo(numB);
-      });
+    final paths =
+        files
+            .where(
+              (file) =>
+                  file.path.contains('shake_') && file.path.endsWith('.m4a'),
+            )
+            .map((file) => file.path)
+            .toList()
+          ..sort((a, b) {
+            final numA =
+                int.tryParse(p.basename(a).replaceAll(RegExp(r'[^0-9]'), '')) ??
+                0;
+            final numB =
+                int.tryParse(p.basename(b).replaceAll(RegExp(r'[^0-9]'), '')) ??
+                0;
+            return numA.compareTo(numB);
+          });
 
     await prefs.setStringList(AppConstants.playlistKey, paths);
     await prefs.setInt(AppConstants.recordingCountKey, paths.length);

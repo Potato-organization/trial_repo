@@ -1,6 +1,6 @@
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +12,7 @@ import '../../constants.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/audio/audio_player_service.dart';
 import '../../services/trigger_service.dart';
+import '../../ui/chaos_design.dart';
 
 class PrankToolsView extends StatefulWidget {
   final Color accentColor;
@@ -79,20 +80,23 @@ class _PrankToolsViewState extends State<PrankToolsView> {
     final playlist = prefs.getStringList(AppConstants.playlistKey) ?? [];
     if (playlist.isNotEmpty) {
       final path = playlist[Random().nextInt(playlist.length)];
-      if (mounted) {
-        final player = Provider.of<AudioPlayerService>(context, listen: false);
-        await player.play(path);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('💥 Chaos Unleashed!',
-                style: GoogleFonts.inter(color: Colors.white)),
-            backgroundColor: Colors.white10,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      if (!mounted) return;
+      final player = Provider.of<AudioPlayerService>(context, listen: false);
+      await player.play(path);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Chaos unleashed.',
+            style: GoogleFonts.inter(color: ChaosColors.text),
           ),
-        );
-      }
+          backgroundColor: ChaosColors.panelHigh,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     }
   }
 
@@ -112,7 +116,19 @@ class _PrankToolsViewState extends State<PrankToolsView> {
     } else {
       await TriggerService.toggleClapDetection(false);
     }
+    if (!mounted) return;
     setState(() => _clapDetectionActive = val);
+  }
+
+  Future<void> _setClapSensitivity(
+    SettingsProvider settings,
+    double value,
+  ) async {
+    settings.setClapSensitivity(value);
+    if (_clapDetectionActive) {
+      await TriggerService.toggleClapDetection(false);
+      await TriggerService.toggleClapDetection(true, sensitivity: value);
+    }
   }
 
   // ── Light trigger ──────────────────────────────────────────────────────────
@@ -127,8 +143,9 @@ class _PrankToolsViewState extends State<PrankToolsView> {
       context: context,
       builder: (_) => CupertinoAlertDialog(
         title: Text('$type Access Required'),
-        content:
-            Text('Please grant $type permission in Settings to use this trigger.'),
+        content: Text(
+          'Please grant $type permission in Settings to use this trigger.',
+        ),
         actions: [
           CupertinoDialogAction(
             isDefaultAction: true,
@@ -159,7 +176,7 @@ class _PrankToolsViewState extends State<PrankToolsView> {
           style: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Colors.white24,
+            color: ChaosColors.faint,
             letterSpacing: 1.5,
           ),
         ),
@@ -199,16 +216,21 @@ class _PrankToolsViewState extends State<PrankToolsView> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: selected
-                            ? widget.accentColor.withOpacity(0.15)
-                            : Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(20),
+                            ? Color.alphaBlend(
+                                widget.accentColor.withValues(alpha: 0.16),
+                                ChaosColors.panelHigh,
+                              )
+                            : ChaosColors.panelHigh,
+                        borderRadius: BorderRadius.circular(999),
                         border: Border.all(
                           color: selected
-                              ? widget.accentColor.withOpacity(0.6)
-                              : Colors.white.withOpacity(0.08),
+                              ? widget.accentColor.withValues(alpha: 0.6)
+                              : ChaosColors.border,
                         ),
                       ),
                       child: Text(
@@ -216,7 +238,7 @@ class _PrankToolsViewState extends State<PrankToolsView> {
                         style: TextStyle(
                           color: selected
                               ? widget.accentColor
-                              : Colors.white38,
+                              : ChaosColors.muted,
                           fontWeight: selected
                               ? FontWeight.w700
                               : FontWeight.normal,
@@ -259,13 +281,16 @@ class _PrankToolsViewState extends State<PrankToolsView> {
               width: double.infinity,
               child: CupertinoButton(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                color: Colors.redAccent.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(14),
+                color: Colors.redAccent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(999),
                 onPressed: _cancelTimer,
-                child: Text('Cancel',
-                    style: GoogleFonts.inter(
-                        color: Colors.redAccent,
-                        fontWeight: FontWeight.w600)),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.inter(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
           ] else
@@ -279,16 +304,18 @@ class _PrankToolsViewState extends State<PrankToolsView> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      color: widget.accentColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(14),
+                      color: Color.alphaBlend(
+                        widget.accentColor.withValues(alpha: 0.14),
+                        ChaosColors.panelHigh,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
                       border: Border.all(
-                          color: widget.accentColor.withOpacity(0.3)),
+                        color: widget.accentColor.withValues(alpha: 0.45),
+                      ),
                     ),
                     child: Center(
                       child: Text(
-                        _timerSeconds > 0
-                            ? 'Start Timer'
-                            : 'Select a duration',
+                        _timerSeconds > 0 ? 'Start Timer' : 'Select a duration',
                         style: GoogleFonts.inter(
                           color: widget.accentColor,
                           fontWeight: FontWeight.w600,
@@ -320,9 +347,10 @@ class _PrankToolsViewState extends State<PrankToolsView> {
               Text(
                 'Enable',
                 style: GoogleFonts.inter(
-                    color: Colors.white70,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500),
+                  color: ChaosColors.muted,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               CupertinoSwitch(
                 value: _clapDetectionActive,
@@ -340,14 +368,21 @@ class _PrankToolsViewState extends State<PrankToolsView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Clap Sensitivity',
-                          style: GoogleFonts.inter(
-                              color: Colors.white38, fontSize: 12)),
-                      Text('${settings.clapSensitivity.toStringAsFixed(0)} dB',
-                          style: GoogleFonts.inter(
-                              color: widget.accentColor,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12)),
+                      Text(
+                        'Clap Sensitivity',
+                        style: GoogleFonts.inter(
+                          color: ChaosColors.faint,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        '${settings.clapSensitivity.toStringAsFixed(0)} dB',
+                        style: GoogleFonts.inter(
+                          color: widget.accentColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                   CupertinoSlider(
@@ -356,7 +391,7 @@ class _PrankToolsViewState extends State<PrankToolsView> {
                     max: 120,
                     divisions: 60,
                     activeColor: widget.accentColor,
-                    onChanged: settings.setClapSensitivity,
+                    onChanged: (value) => _setClapSensitivity(settings, value),
                   ),
                 ],
               ),
@@ -379,9 +414,10 @@ class _PrankToolsViewState extends State<PrankToolsView> {
           Text(
             'Enable',
             style: GoogleFonts.inter(
-                color: Colors.white70,
-                fontSize: 15,
-                fontWeight: FontWeight.w500),
+              color: ChaosColors.muted,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           CupertinoSwitch(
             value: _lightTriggerActive,
@@ -393,8 +429,6 @@ class _PrankToolsViewState extends State<PrankToolsView> {
     );
   }
 }
-
-// ── Reusable prank card shell ────────────────────────────────────────────────
 
 class _PrankCard extends StatelessWidget {
   final IconData icon;
@@ -413,60 +447,54 @@ class _PrankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.07)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: ChaosDecorations.panel(color: ChaosColors.panel, radius: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: accentColor, size: 20),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: ChaosDecorations.panel(
+                  color: Color.alphaBlend(
+                    accentColor.withValues(alpha: 0.12),
+                    ChaosColors.panelHigh,
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          subtitle,
-                          style: GoogleFonts.inter(
-                            color: Colors.white30,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  borderColor: accentColor.withValues(alpha: 0.35),
+                  radius: 16,
+                ),
+                child: Icon(icon, color: accentColor, size: 20),
               ),
-              const SizedBox(height: 18),
-              child,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: ChaosColors.text,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(
+                        color: ChaosColors.muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
+          const SizedBox(height: 18),
+          child,
+        ],
       ),
     );
   }

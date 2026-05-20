@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants.dart';
+import '../services/background_service.dart';
 
 class SettingsProvider with ChangeNotifier {
   bool _isPremium = false;
   double _shakeSensitivity = AppConstants.defaultShakeSensitivity;
   bool _stealthMode = false;
+  bool _isSlapModeEnabled = false;
+  double _slapSensitivity = AppConstants.defaultSlapSensitivity;
   bool _isBackgroundTriggersActive = false;
   double _clapSensitivity = AppConstants.defaultClapSensitivity;
   int _selectedEffectIndex = 0;
@@ -15,6 +18,8 @@ class SettingsProvider with ChangeNotifier {
   final String _premiumKey = 'is_premium';
   final String _sensitivityKey = 'shake_sensitivity';
   final String _stealthKey = 'stealth_mode';
+  final String _slapModeKey = 'slap_mode';
+  final String _slapSensitivityKey = 'slap_sensitivity';
   final String _bgTriggersKey = 'bg_triggers_active';
   final String _clapSensitivityKey = 'clap_sensitivity';
   final String _effectIndexKey = 'selected_effect_index';
@@ -23,6 +28,8 @@ class SettingsProvider with ChangeNotifier {
   bool get isPremium => _isPremium;
   double get shakeSensitivity => _shakeSensitivity;
   bool get stealthMode => _stealthMode;
+  bool get isSlapModeEnabled => _isSlapModeEnabled;
+  double get slapSensitivity => _slapSensitivity;
   bool get isBackgroundTriggersActive => _isBackgroundTriggersActive;
   double get clapSensitivity => _clapSensitivity;
   int get selectedEffectIndex => _selectedEffectIndex;
@@ -36,12 +43,22 @@ class SettingsProvider with ChangeNotifier {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _isPremium = prefs.getBool(_premiumKey) ?? false;
-    _shakeSensitivity = prefs.getDouble(_sensitivityKey) ?? AppConstants.defaultShakeSensitivity;
+    _shakeSensitivity =
+        prefs.getDouble(_sensitivityKey) ??
+        AppConstants.defaultShakeSensitivity;
     _stealthMode = prefs.getBool(_stealthKey) ?? false;
+    _isSlapModeEnabled = prefs.getBool(_slapModeKey) ?? false;
+    _slapSensitivity =
+        prefs.getDouble(_slapSensitivityKey) ??
+        AppConstants.defaultSlapSensitivity;
     _isBackgroundTriggersActive = prefs.getBool(_bgTriggersKey) ?? false;
-    _clapSensitivity = prefs.getDouble(_clapSensitivityKey) ?? AppConstants.defaultClapSensitivity;
+    _clapSensitivity =
+        prefs.getDouble(_clapSensitivityKey) ??
+        AppConstants.defaultClapSensitivity;
     _selectedEffectIndex = prefs.getInt(_effectIndexKey) ?? 0;
-    _favoriteAssets = Set<String>.from(prefs.getStringList(_favoritesKey) ?? []);
+    _favoriteAssets = Set<String>.from(
+      prefs.getStringList(_favoritesKey) ?? [],
+    );
     _isLoading = false;
     notifyListeners();
   }
@@ -67,10 +84,25 @@ class SettingsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void setSlapMode(bool value) async {
+    _isSlapModeEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_slapModeKey, value);
+    notifyListeners();
+  }
+
+  void setSlapSensitivity(double value) async {
+    _slapSensitivity = value.clamp(0.0, 1.0);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_slapSensitivityKey, _slapSensitivity);
+    notifyListeners();
+  }
+
   void setBackgroundTriggers(bool value) async {
     _isBackgroundTriggersActive = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_bgTriggersKey, value);
+    await BackgroundService.setEnabled(value);
     notifyListeners();
   }
 

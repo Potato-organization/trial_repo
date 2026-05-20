@@ -1,11 +1,11 @@
 {
-    "name": "trial",
-    "short_name": "trial",
+    "name": "Chaos",
+    "short_name": "Chaos",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#101216",
+    "theme_color": "#101216",
+    "description": "A playful soundboard for recording and triggering funny sounds.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

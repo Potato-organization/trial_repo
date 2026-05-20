@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'ui/chaos_design.dart';
 
 /// Central place for all magic numbers and shared string keys used across the app.
 class AppConstants {
   AppConstants._();
 
   // ── Background colour used everywhere ──────────────────────────────────────
-  static const Color backgroundColor = Color(0xFF0A0E21);
-  static const Color surfaceColor = Color(0xFF1D1E33);
+  static const Color backgroundColor = ChaosColors.background;
+  static const Color surfaceColor = ChaosColors.panel;
 
   // ── Shake detection ─────────────────────────────────────────────────────────
   /// Default magnitude threshold (m/s²) for a shake to be recognised.
@@ -18,6 +19,19 @@ class AppConstants {
 
   /// Minimum time between consecutive shake triggers.
   static const Duration shakeDebounce = Duration(seconds: 2);
+
+  // ── Slap detection ─────────────────────────────────────────────────────────
+  /// Strong impact threshold used for slap-style phone taps.
+  static const double defaultSlapImpactThreshold = 22.0;
+
+  /// Minimum magnitude jump between samples before an impact counts as a slap.
+  static const double defaultSlapJerkThreshold = 10.0;
+
+  /// User-facing slap sensitivity. 0 is firm taps only, 1 is very responsive.
+  static const double defaultSlapSensitivity = 0.55;
+
+  /// Minimum time between consecutive slap triggers.
+  static const Duration slapDebounce = Duration(milliseconds: 700);
 
   // ── Clap / noise detection ──────────────────────────────────────────────────
   /// Default dB threshold for clap detection.

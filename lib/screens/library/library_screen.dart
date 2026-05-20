@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,8 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../models/sound_category.dart';
 import '../../providers/settings_provider.dart';
-import '../../providers/theme_provider.dart';
 import '../../services/audio/audio_player_service.dart';
+import '../../ui/chaos_design.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -37,8 +36,10 @@ class _LibraryScreenState extends State<LibraryScreen>
     super.didChangeDependencies();
     if (!_didSetup) {
       _didSetup = true;
-      final playerService =
-          Provider.of<AudioPlayerService>(context, listen: false);
+      final playerService = Provider.of<AudioPlayerService>(
+        context,
+        listen: false,
+      );
       _playerSubscription = playerService.playerStateStream.listen((state) {
         if (mounted && !state.playing) {
           setState(() => _currentlyPlayingAsset = null);
@@ -78,11 +79,10 @@ class _LibraryScreenState extends State<LibraryScreen>
     final settings = Provider.of<SettingsProvider>(context);
 
     // Build favourite sounds list from all categories.
-    final allSounds = SoundCategory.categories
-        .expand((c) => c.sounds)
+    final allSounds = SoundCategory.categories.expand((c) => c.sounds).toList();
+    final favourites = allSounds
+        .where((s) => settings.favoriteAssets.contains(s.assetPath))
         .toList();
-    final favourites =
-        allSounds.where((s) => settings.favoriteAssets.contains(s.assetPath)).toList();
 
     return Scaffold(
       backgroundColor: bg,
@@ -100,7 +100,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                 style: GoogleFonts.inter(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: ChaosColors.text,
                 ),
               ),
             ),
@@ -109,7 +109,7 @@ class _LibraryScreenState extends State<LibraryScreen>
               indicatorColor: accentColor,
               indicatorSize: TabBarIndicatorSize.label,
               labelColor: accentColor,
-              unselectedLabelColor: Colors.white24,
+              unselectedLabelColor: ChaosColors.faint,
               labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
               tabs: [
                 const Tab(text: 'All Sounds'),
@@ -122,7 +122,9 @@ class _LibraryScreenState extends State<LibraryScreen>
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: accentColor,
                             borderRadius: BorderRadius.circular(10),
@@ -130,9 +132,10 @@ class _LibraryScreenState extends State<LibraryScreen>
                           child: Text(
                             '${settings.favoriteAssets.length}',
                             style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.black,
-                                fontWeight: FontWeight.w700),
+                              fontSize: 10,
+                              color: ChaosColors.background,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
@@ -178,14 +181,15 @@ class _LibraryScreenState extends State<LibraryScreen>
                     style: GoogleFonts.inter(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white70,
+                      color: ChaosColors.muted,
                     ),
                   ),
                 ],
               ),
             ),
-            ...category.sounds.map((sound) => _buildSoundTile(
-                  sound, player, settings, accentColor)),
+            ...category.sounds.map(
+              (sound) => _buildSoundTile(sound, player, settings, accentColor),
+            ),
             const SizedBox(height: 8),
           ],
         );
@@ -206,26 +210,29 @@ class _LibraryScreenState extends State<LibraryScreen>
           children: [
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.04),
+                color: ChaosColors.panelHigh,
               ),
-              child:
-                  const Icon(CupertinoIcons.heart, size: 40, color: Colors.white12),
+              child: const Icon(
+                CupertinoIcons.heart,
+                size: 40,
+                color: ChaosColors.faint,
+              ),
             ),
             const SizedBox(height: 20),
             Text(
               'No favourites yet',
               style: GoogleFonts.inter(
-                  color: Colors.white38,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600),
+                color: ChaosColors.muted,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Tap ♡ on any sound to save it here',
-              style:
-                  GoogleFonts.inter(color: Colors.white24, fontSize: 14),
+              style: GoogleFonts.inter(color: ChaosColors.faint, fontSize: 14),
             ),
           ],
         ),
@@ -234,8 +241,8 @@ class _LibraryScreenState extends State<LibraryScreen>
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
       itemCount: favourites.length,
-      itemBuilder: (context, i) => _buildSoundTile(
-          favourites[i], player, settings, accentColor),
+      itemBuilder: (context, i) =>
+          _buildSoundTile(favourites[i], player, settings, accentColor),
     );
   }
 
@@ -250,80 +257,61 @@ class _LibraryScreenState extends State<LibraryScreen>
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: isPlaying
-                  ? accentColor.withOpacity(0.12)
-                  : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isPlaying
-                    ? accentColor.withOpacity(0.4)
-                    : Colors.white.withOpacity(0.07),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: isPlaying
+            ? ChaosDecorations.selectedPanel(accentColor, radius: 20)
+            : ChaosDecorations.panel(color: ChaosColors.panel, radius: 20),
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                settings.toggleFavorite(sound.assetPath);
+              },
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: Icon(
+                  isFav ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+                  key: ValueKey(isFav),
+                  color: isFav ? ChaosColors.coral : ChaosColors.faint,
+                  size: 20,
+                ),
               ),
             ),
-            child: Row(
-              children: [
-                // Favourite button
-                GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    settings.toggleFavorite(sound.assetPath);
-                  },
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    transitionBuilder: (child, anim) =>
-                        ScaleTransition(scale: anim, child: child),
-                    child: Icon(
-                      isFav ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
-                      key: ValueKey(isFav),
-                      color: isFav ? Colors.pinkAccent : Colors.white24,
-                      size: 20,
-                    ),
-                  ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                sound.name,
+                style: GoogleFonts.inter(
+                  color: isPlaying ? accentColor : ChaosColors.text,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
                 ),
-                const SizedBox(width: 14),
-                // Sound name
-                Expanded(
-                  child: Text(
-                    sound.name,
-                    style: GoogleFonts.inter(
-                      color: isPlaying ? accentColor : Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                // Play/Stop
-                GestureDetector(
-                  onTap: () => _playOrStop(
-                      player, settings, sound.assetPath, accentColor),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isPlaying
-                          ? accentColor.withOpacity(0.2)
-                          : Colors.white.withOpacity(0.08),
-                    ),
-                    child: Icon(
-                      isPlaying
-                          ? Icons.stop_rounded
-                          : Icons.play_arrow_rounded,
-                      color: isPlaying ? accentColor : Colors.white54,
-                      size: 22,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            GestureDetector(
+              onTap: () =>
+                  _playOrStop(player, settings, sound.assetPath, accentColor),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isPlaying
+                      ? accentColor.withValues(alpha: 0.18)
+                      : ChaosColors.panelPressed,
+                ),
+                child: Icon(
+                  isPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                  color: isPlaying ? accentColor : ChaosColors.muted,
+                  size: 22,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

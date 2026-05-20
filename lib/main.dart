@@ -12,6 +12,7 @@ import 'services/audio/audio_player_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
 import 'constants.dart';
+import 'ui/chaos_design.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,7 +62,7 @@ class MyApp extends StatelessWidget {
               backgroundColor: AppConstants.backgroundColor,
               body: const Center(
                 child: CircularProgressIndicator(
-                  color: Colors.blueAccent,
+                  color: ChaosColors.blue,
                   strokeWidth: 2,
                 ),
               ),

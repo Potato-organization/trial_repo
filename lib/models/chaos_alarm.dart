@@ -46,30 +46,30 @@ class ChaosAlarm {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'androidAlarmId': androidAlarmId,
-        'hour': time.hour,
-        'minute': time.minute,
-        'isEnabled': isEnabled,
-        'days': days,
-        'soundPath': soundPath,
-        'assetPath': assetPath,
-        'isRandom': isRandom,
-      };
+    'id': id,
+    'androidAlarmId': androidAlarmId,
+    'hour': time.hour,
+    'minute': time.minute,
+    'isEnabled': isEnabled,
+    'days': days,
+    'soundPath': soundPath,
+    'assetPath': assetPath,
+    'isRandom': isRandom,
+  };
 
   factory ChaosAlarm.fromJson(Map<String, dynamic> json) => ChaosAlarm(
-        id: json['id'] as String,
-        androidAlarmId: (json['androidAlarmId'] as num?)?.toInt() ?? 1001,
-        time: TimeOfDay(
-          hour: (json['hour'] as num).toInt(),
-          minute: (json['minute'] as num).toInt(),
-        ),
-        isEnabled: json['isEnabled'] as bool? ?? true,
-        days: (json['days'] as List<dynamic>? ?? [0, 1, 2, 3, 4, 5, 6])
-            .map((e) => (e as num).toInt())
-            .toList(),
-        soundPath: json['soundPath'] as String?,
-        assetPath: json['assetPath'] as String?,
-        isRandom: json['isRandom'] as bool? ?? false,
-      );
+    id: json['id'] as String,
+    androidAlarmId: (json['androidAlarmId'] as num?)?.toInt() ?? 1001,
+    time: TimeOfDay(
+      hour: (json['hour'] as num).toInt(),
+      minute: (json['minute'] as num).toInt(),
+    ),
+    isEnabled: json['isEnabled'] as bool? ?? true,
+    days: (json['days'] as List<dynamic>? ?? [0, 1, 2, 3, 4, 5, 6])
+        .map((e) => (e as num).toInt())
+        .toList(),
+    soundPath: json['soundPath'] as String?,
+    assetPath: json['assetPath'] as String?,
+    isRandom: json['isRandom'] as bool? ?? false,
+  );
 }

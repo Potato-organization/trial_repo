@@ -25,7 +25,9 @@ class ShakeService {
     if (_active) return;
     _active = true;
     _subscription = accelerometerEventStream().listen((event) {
-      final mag = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+      final mag = sqrt(
+        event.x * event.x + event.y * event.y + event.z * event.z,
+      );
       if (mag > sensitivity) {
         final now = DateTime.now();
         if (now.difference(_lastShake) > AppConstants.shakeDebounce) {
